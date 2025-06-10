@@ -249,25 +249,29 @@ export default function Atividades() {
       </div>
 
       <h2 className="text-xl font-semibold mt-6 mb-4">Atividades Salvas</h2>
-      <div className="space-y-4">
-        {
-          [...atividades].sort((a, b) => {
-            if (a.dataLiberacao && !b.dataLiberacao) return 1;
-            if (!a.dataLiberacao && b.dataLiberacao) return -1;
-            const dataA = new Date(a.dataAgendamento);
-            const dataB = new Date(b.dataAgendamento);
-            return dataA - dataB;
-          }).map((item) => {
-          const tamanhoInfo =
-            item.servico === "Deslocamento"
-              ? `Tamanho: ${item.tamanhoAnterior || ""} ➔ ${item.tamanhoNovo || ""}`
-              : `Tamanho: ${item.tamanho || ""}`;
+<div className="space-y-4">
+  {(() => {
+    const naoLiberadas = atividades
+      .filter((a) => !a.dataLiberacao)
+      .sort((a, b) => new Date(a.dataAgendamento) - new Date(b.dataAgendamento));
 
-          return (
-            <div
-              key={item.id}
-              className="border rounded-xl p-4 shadow flex flex-col gap-2 bg-white"
-            >
+    const liberadas = atividades
+      .filter((a) => a.dataLiberacao)
+      .sort((a, b) => new Date(b.dataLiberacao) - new Date(a.dataLiberacao));
+
+    const listaFinal = [...naoLiberadas, ...liberadas];
+
+    return listaFinal.map((item) => {
+      const tamanhoInfo =
+        item.servico === "Deslocamento"
+          ? `Tamanho: ${item.tamanhoAnterior || ""} ➔ ${item.tamanhoNovo || ""}`
+          : `Tamanho: ${item.tamanho || ""}`;
+
+      return (
+        <div
+          key={item.id}
+          className="border rounded-xl p-4 shadow flex flex-col gap-2 bg-white"
+        >
               <strong>{item.servico} - {item.equipamento}</strong>
               <span className="text-xs font-semibold text-gray-500">
   Status: {item.dataLiberacao
@@ -362,11 +366,13 @@ export default function Atividades() {
                     <li key={i}>{mat}</li>
                   ))}
                 </ul>
-              )}
-            </div>
-          );
-        })}
+                )}
+                </div>
+              );
+            });
+          })()}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
+  

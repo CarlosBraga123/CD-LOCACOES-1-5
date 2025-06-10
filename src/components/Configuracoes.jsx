@@ -40,6 +40,28 @@ export default function Configuracoes() {
     alert("Valores salvos com sucesso!");
   };
 
+  const aplicarValoresJunho = () => {
+    const atividades = JSON.parse(localStorage.getItem("atividades") || "[]");
+    const atualizadas = atividades.map((atividade) => {
+      const data = new Date(atividade.dataAgendamento);
+      const ehJunho2025 = data.getMonth() === 5 && data.getFullYear() === 2025;
+      const ehManutencao = atividade.servico === "Manutenção";
+      const chave = `${atividade.equipamento}-${atividade.servico}`;
+      const novoValor = valores[chave];
+
+      if (ehJunho2025 && !ehManutencao && novoValor) {
+        return {
+          ...atividade,
+          valor: novoValor
+        };
+      }
+      return atividade;
+    });
+
+    localStorage.setItem("atividades", JSON.stringify(atualizadas));
+    alert("Valores de Junho/2025 atualizados com sucesso!");
+  };
+
   return (
     <div className="p-4 space-y-6">
       <h2 className="text-lg font-bold">⚙️ Configurações de Materiais</h2>
@@ -140,9 +162,21 @@ export default function Configuracoes() {
         ))}
       </div>
 
-      <button onClick={salvarValores} className="bg-green-600 text-white px-4 py-2 rounded mt-4">
-        Salvar Valores
-      </button>
+      <div className="flex flex-col md:flex-row gap-4 mt-6">
+        <button
+          onClick={salvarValores}
+          className="bg-green-600 text-white px-4 py-2 rounded w-full md:w-auto"
+        >
+          Salvar Valores
+        </button>
+
+        <button
+          onClick={aplicarValoresJunho}
+          className="bg-yellow-500 text-white px-4 py-2 rounded w-full md:w-auto"
+        >
+          Aplicar valores de Junho/2025
+        </button>
+      </div>
     </div>
   );
 }

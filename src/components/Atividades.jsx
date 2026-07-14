@@ -7,7 +7,7 @@ import { obterOperacoes, obterRegraOperacao } from "../utils/regrasOperacao";
 import OrdemServico from "./OrdemServico";
 import Contrato from "./documentos/Contrato";
 import { obterTipoContrato } from "../utils/contrato";
-import { gerarCodigoOrdemServico } from "../utils/ordemServico";
+import { gerarProximoNumeroOS } from "../utils/ordemServico";
 
 const filtrosListaIniciais = {
   busca: "",
@@ -54,6 +54,8 @@ const converterValorParaNumero = (valor) => {
 
 export default function Atividades() {
   const topoRef = useRef(null);
+  const atividadeRefs = useRef({});
+  const filtrosAntesLocalizacaoRef = useRef(null);
   const [construtoras, setConstrutoras] = useState([]);
   const [obras, setObras] = useState([]);
   const [atividades, setAtividades] = useState([]);
@@ -62,6 +64,8 @@ export default function Atividades() {
   const [documentosAbertoId, setDocumentosAbertoId] = useState(null);
   const [atividadeOrdemServico, setAtividadeOrdemServico] = useState(null);
   const [atividadeContrato, setAtividadeContrato] = useState(null);
+  const [atividadeParaLocalizarId, setAtividadeParaLocalizarId] = useState(null);
+  const [atividadeDestacadaId, setAtividadeDestacadaId] = useState(null);
   const camposValor = [
     "valorUnitarioServico",
     "adicionalServicoContrapeso",
@@ -111,28 +115,35 @@ export default function Atividades() {
     const obrasSalvas = JSON.parse(localStorage.getItem("obras")) || [];
     setObras(obrasSalvas);
 
-    const atividadeParaEditar = localStorage.getItem("atividadeParaEditar");
-    if (atividadeParaEditar) {
-      const encontrada = dadosSalvos.find((a) => String(a.id) === atividadeParaEditar);
-      if (encontrada) {
-        const atividadeComValores = aplicarValoresCongeladosNoFormulario(encontrada);
-        setValoresEditadosManual(marcarCamposValorPreenchidos(atividadeComValores));
-        setForm({
-          ...atividadeComValores,
-          quantidade: atividadeComValores.quantidade || 1,
-          numerosPatrimonio: ajustarNumerosPatrimonio(
-            atividadeComValores.numerosPatrimonio || [],
-            atividadeComValores.quantidade || 1
-          ),
-          tipoBalancinho: atividadeComValores.tipoBalancinho || "",
-          usaContrapeso: atividadeComValores.usaContrapeso || false,
-          tipoMiniGrua: atividadeComValores.tipoMiniGrua || "",
-        });
-        setTimeout(() => {
-          topoRef.current?.scrollIntoView({ behavior: "smooth" });
-        }, 50);
-      }
+    const atividadeParaLocalizar = localStorage.getItem("atividadeParaLocalizar");
+    if (atividadeParaLocalizar) {
+      setAtividadeParaLocalizarId(atividadeParaLocalizar);
+      localStorage.removeItem("atividadeParaLocalizar");
       localStorage.removeItem("atividadeParaEditar");
+    } else {
+      const atividadeParaEditar = localStorage.getItem("atividadeParaEditar");
+      if (atividadeParaEditar) {
+        const encontrada = dadosSalvos.find((a) => String(a.id) === atividadeParaEditar);
+        if (encontrada) {
+          const atividadeComValores = aplicarValoresCongeladosNoFormulario(encontrada);
+          setValoresEditadosManual(marcarCamposValorPreenchidos(atividadeComValores));
+          setForm({
+            ...atividadeComValores,
+            quantidade: atividadeComValores.quantidade || 1,
+            numerosPatrimonio: ajustarNumerosPatrimonio(
+              atividadeComValores.numerosPatrimonio || [],
+              atividadeComValores.quantidade || 1
+            ),
+            tipoBalancinho: atividadeComValores.tipoBalancinho || "",
+            usaContrapeso: atividadeComValores.usaContrapeso || false,
+            tipoMiniGrua: atividadeComValores.tipoMiniGrua || "",
+          });
+          setTimeout(() => {
+            topoRef.current?.scrollIntoView({ behavior: "smooth" });
+          }, 50);
+        }
+        localStorage.removeItem("atividadeParaEditar");
+      }
     }
   }, []);
 
@@ -491,6 +502,7 @@ export default function Atividades() {
           form.valoresCongelados?.tabelaOrigem || obterTabelaOrigemDaAtividade(form)
         )
       : form.valoresCongelados;
+    const numeroOS = form.numeroOS || (form.dataLiberacao ? gerarProximoNumeroOS(atividades, form.dataLiberacao) : "");
     const novaAtividade = {
       ...form,
       obra: obraSelecionada?.nome || form.obra,
@@ -504,6 +516,7 @@ export default function Atividades() {
       adicionalMensalContrapeso: form.usaContrapeso ? form.adicionalMensalContrapeso : 0,
       ...regrasOperacionais,
       valoresCongelados,
+      numeroOS,
       id: form.id || Date.now(),
       iniciado: form.iniciado || false,
     };
@@ -572,21 +585,8 @@ export default function Atividades() {
   };
 
   const abrirOrdemServico = (item) => {
-    let atividadeAtualizada = item;
-    let listaAtualizada = atividades;
-
-    if (!item.codigoOrdemServico) {
-      const codigoOrdemServico = gerarCodigoOrdemServico(atividades);
-      listaAtualizada = atividades.map((atividade) =>
-        atividade.id === item.id ? { ...atividade, codigoOrdemServico } : atividade
-      );
-      atividadeAtualizada = { ...item, codigoOrdemServico };
-      setAtividades(listaAtualizada);
-      localStorage.setItem("atividades", JSON.stringify(listaAtualizada));
-    }
-
     setDocumentosAbertoId(null);
-    setAtividadeOrdemServico(atividadeAtualizada);
+    setAtividadeOrdemServico(item);
   };
 
   const abrirContrato = (item) => {
@@ -727,6 +727,45 @@ export default function Atividades() {
       return true;
     });
   }, [atividadesOrdenadas, filtrosLista, obras]);
+
+  useEffect(() => {
+    if (!atividadeParaLocalizarId || atividades.length === 0) return;
+
+    const atividadeExiste = atividades.some((atividade) => String(atividade.id) === String(atividadeParaLocalizarId));
+    if (!atividadeExiste) {
+      setAtividadeParaLocalizarId(null);
+      return;
+    }
+
+    const atividadeVisivel = atividadesFiltradas.some(
+      (atividade) => String(atividade.id) === String(atividadeParaLocalizarId)
+    );
+
+    if (!atividadeVisivel) {
+      if (!filtrosAntesLocalizacaoRef.current) {
+        filtrosAntesLocalizacaoRef.current = filtrosLista;
+      }
+      setFiltrosLista(filtrosListaIniciais);
+      return;
+    }
+
+    const elemento = atividadeRefs.current[String(atividadeParaLocalizarId)];
+    if (!elemento) return;
+
+    elemento.scrollIntoView({ behavior: "smooth", block: "center" });
+    setAtividadeDestacadaId(String(atividadeParaLocalizarId));
+
+    const timeout = window.setTimeout(() => {
+      setAtividadeDestacadaId(null);
+      setAtividadeParaLocalizarId(null);
+      if (filtrosAntesLocalizacaoRef.current) {
+        setFiltrosLista(filtrosAntesLocalizacaoRef.current);
+        filtrosAntesLocalizacaoRef.current = null;
+      }
+    }, 3500);
+
+    return () => window.clearTimeout(timeout);
+  }, [atividadeParaLocalizarId, atividades, atividadesFiltradas, filtrosLista]);
 
   return (
     <div className="p-4">
@@ -1166,7 +1205,15 @@ export default function Atividades() {
       return (
         <div
           key={item.id}
-          className="border rounded-xl p-4 shadow flex flex-col gap-2 bg-white"
+          ref={(elemento) => {
+            if (elemento) atividadeRefs.current[String(item.id)] = elemento;
+            else delete atividadeRefs.current[String(item.id)];
+          }}
+          className={`border rounded-xl p-4 shadow flex flex-col gap-2 transition-colors duration-500 ${
+            String(atividadeDestacadaId) === String(item.id)
+              ? "border-blue-500 bg-blue-50 ring-2 ring-blue-300"
+              : "bg-white"
+          }`}
         >
               <strong>{item.servico} - {formatarEquipamento(item)}</strong>
               {item.usaContrapeso && (
@@ -1221,11 +1268,13 @@ export default function Atividades() {
                 {!item.dataLiberacao && (
                   <button
                     onClick={() => {
+                      const dataLiberacao = new Date().toISOString().split("T")[0];
                       const atualizadas = atividades.map((a) =>
                         a.id === item.id
                           ? {
                               ...a,
-                              dataLiberacao: new Date().toISOString().split("T")[0],
+                              dataLiberacao,
+                              numeroOS: a.numeroOS || gerarProximoNumeroOS(atividades, dataLiberacao),
                               valoresCongelados: montarValoresCongelados(a),
                             }
                           : a

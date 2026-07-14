@@ -13,11 +13,13 @@ import {
   subWeeks,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { obterObraDaAtividade } from "../utils/obras";
 
 const logoURL = "/CD LOCACOES.png";
 
 type Atividade = {
   id: string;
+  obraId?: string | number;
   obra: string;
   construtora: string;
   servico: string;
@@ -26,12 +28,19 @@ type Atividade = {
   dataLiberacao?: string;
 };
 
+type Obra = {
+  id: string | number;
+  nome: string;
+  construtora: string;
+};
+
 export default function Agenda() {
   const [modo, setModo] = useState("semana");
   const [referencia, setReferencia] = useState(new Date());
   const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(null);
 
   const atividades: Atividade[] = JSON.parse(localStorage.getItem("atividades") || "[]");
+  const obras: Obra[] = JSON.parse(localStorage.getItem("obras") || "[]");
 
   const inicioSemana = startOfWeek(referencia, { weekStartsOn: 1 });
   const diasDaSemana = Array.from({ length: 7 }, (_, i) => addDays(inicioSemana, i));
@@ -43,6 +52,15 @@ export default function Agenda() {
     if (a.dataLiberacao) return "CONCLUÍDO";
     if ((a as any).iniciado) return "EM ANDAMENTO";
     return "AGENDADO";
+  };
+
+  const obterDadosObra = (a: Atividade) => {
+    const obra = obterObraDaAtividade(a, obras);
+
+    return {
+      obra: obra?.nome || a.obra,
+      construtora: obra?.construtora || a.construtora,
+    };
   };
   
 
@@ -139,14 +157,18 @@ export default function Agenda() {
                   <p className="text-gray-400 text-sm">Nenhuma atividade</p>
                 ) : (
                   <ul className="space-y-1">
-                    {atividades.map((a) => (
-                      <li key={a.id} className="text-sm text-gray-800">
-                        <strong>{a.construtora} - {a.obra}</strong> — {a.servico} ({a.equipamento})
-                        <span className={`ml-2 text-xs font-semibold ${obterStatus(a) === "CONCLUÍDO" ? "text-green-600" : "text-gray-500"}`}>
-                          {obterStatus(a)}
-                        </span>
-                      </li>
-                    ))}
+                    {atividades.map((a) => {
+                      const dadosObra = obterDadosObra(a);
+
+                      return (
+                        <li key={a.id} className="text-sm text-gray-800">
+                          <strong>{dadosObra.construtora} - {dadosObra.obra}</strong> — {a.servico} ({a.equipamento})
+                          <span className={`ml-2 text-xs font-semibold ${obterStatus(a) === "CONCLUÍDO" ? "text-green-600" : "text-gray-500"}`}>
+                            {obterStatus(a)}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
@@ -182,16 +204,20 @@ export default function Agenda() {
                   {atividadesDoDia.length === 0 ? (
                     <span className="text-[10px] text-gray-400">Sem atividades</span>
                   ) : (
-                    atividadesDoDia.map((a) => (
-                      <div key={a.id} className="leading-tight text-[10px] text-gray-700">
-                        <span className="block truncate font-medium">
-                          {a.servico} — {a.obra} ({a.construtora})
-                        </span>
-                        <span className={`text-[10px] ${obterStatus(a) === "CONCLUÍDO" ? "text-green-600" : "text-gray-500"}`}>
-                          {obterStatus(a)}
-                        </span>
-                      </div>
-                    ))
+                    atividadesDoDia.map((a) => {
+                      const dadosObra = obterDadosObra(a);
+
+                      return (
+                        <div key={a.id} className="leading-tight text-[10px] text-gray-700">
+                          <span className="block truncate font-medium">
+                            {a.servico} — {dadosObra.obra} ({dadosObra.construtora})
+                          </span>
+                          <span className={`text-[10px] ${obterStatus(a) === "CONCLUÍDO" ? "text-green-600" : "text-gray-500"}`}>
+                            {obterStatus(a)}
+                          </span>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               );

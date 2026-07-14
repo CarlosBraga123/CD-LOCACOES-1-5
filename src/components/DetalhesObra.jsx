@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { atividadePertenceObra } from "../utils/obras";
 
-export default function DetalhesObra() {
+export default function DetalhesObra({ abrirAtividade }) {
   const [obras, setObras] = useState([]);
   const [atividades, setAtividades] = useState([]);
   const [obraSelecionada, setObraSelecionada] = useState(null);
@@ -19,45 +20,159 @@ export default function DetalhesObra() {
     return `${d}/${m}/${y}`;
   };
 
-  const calcularAtivos = (obraNome, equipamento) => {
-    const instalacoes = atividades.filter(
-      (a) =>
-        a.obra === obraNome &&
-        a.equipamento === equipamento &&
-        a.servico === "Instalação" &&
-        a.dataLiberacao
-    ).length;
+  const calcularAtivos = (obra, equipamento) => {
+    return atividades
+      .filter((a) => atividadePertenceObra(a, obra) && a.equipamento === equipamento && a.dataLiberacao)
+      .reduce((total, atividade) => {
+        const quantidade = Number(atividade.quantidade) || 1;
+        const iniciaLocacao =
+          atividade.iniciaLocacao === true ||
+          (atividade.iniciaLocacao === undefined && atividade.servico === "Instalação");
+        const encerraLocacao =
+          atividade.encerraLocacao === true ||
+          (atividade.encerraLocacao === undefined && atividade.servico === "Remoção");
 
-    const remocoes = atividades.filter(
-      (a) =>
-        a.obra === obraNome &&
-        a.equipamento === equipamento &&
-        a.servico === "Remoção" &&
-        a.dataLiberacao
-    ).length;
-
-    return instalacoes - remocoes;
+        if (iniciaLocacao) return total + quantidade;
+        if (encerraLocacao) return total - quantidade;
+        return total;
+      }, 0);
   };
 
-  const contarServicos = (obraNome, equipamento, servico) => {
-    return atividades.filter(
-      (a) =>
-        a.obra === obraNome &&
+  const formatarGrupoBalancinho = (atividade) => {
+    let nome = "Balancinho Elétrico";
+
+    if (atividade.tipoBalancinho === "Manual") nome = "Balancinho Manual";
+
+    return atividade.usaContrapeso ? `${nome} CONTRAPESO` : nome;
+  };
+
+  const calcularAtivosBalancinho = (obra) => {
+    const totais = atividades
+      .filter((a) => atividadePertenceObra(a, obra) && a.equipamento === "Balancinho" && a.dataLiberacao)
+      .reduce((resultado, atividade) => {
+        const quantidade = Number(atividade.quantidade) || 1;
+        const iniciaLocacao =
+          atividade.iniciaLocacao === true ||
+          (atividade.iniciaLocacao === undefined && atividade.servico === "Instalação");
+        const encerraLocacao =
+          atividade.encerraLocacao === true ||
+          (atividade.encerraLocacao === undefined && atividade.servico === "Remoção");
+        const grupo = formatarGrupoBalancinho(atividade);
+
+        if (!resultado[grupo]) resultado[grupo] = 0;
+        if (iniciaLocacao) resultado[grupo] += quantidade;
+        if (encerraLocacao) resultado[grupo] -= quantidade;
+
+        return resultado;
+      }, {});
+
+    const ordem = [
+      "Balancinho Elétrico",
+      "Balancinho Elétrico CONTRAPESO",
+      "Balancinho Manual",
+      "Balancinho Manual CONTRAPESO",
+    ];
+
+    return Object.entries(totais)
+      .filter(([, total]) => total !== 0)
+      .sort(([grupoA], [grupoB]) => {
+        const posicaoA = ordem.indexOf(grupoA);
+        const posicaoB = ordem.indexOf(grupoB);
+
+        if (posicaoA === -1 && posicaoB === -1) return grupoA.localeCompare(grupoB);
+        if (posicaoA === -1) return 1;
+        if (posicaoB === -1) return -1;
+        return posicaoA - posicaoB;
+      })
+      .map(([grupo, total]) => ({ grupo, total }));
+  };
+
+  const formatarGrupoMiniGrua = (atividade) => {
+    return atividade.tipoMiniGrua ? `Mini Grua ${atividade.tipoMiniGrua}` : "Mini Grua";
+  };
+
+  const calcularAtivosMiniGrua = (obra) => {
+    const totais = atividades
+      .filter((a) => atividadePertenceObra(a, obra) && a.equipamento === "Mini Grua" && a.dataLiberacao)
+      .reduce((resultado, atividade) => {
+        const quantidade = Number(atividade.quantidade) || 1;
+        const iniciaLocacao =
+          atividade.iniciaLocacao === true ||
+          (atividade.iniciaLocacao === undefined && atividade.servico === "Instalação");
+        const encerraLocacao =
+          atividade.encerraLocacao === true ||
+          (atividade.encerraLocacao === undefined && atividade.servico === "Remoção");
+        const grupo = formatarGrupoMiniGrua(atividade);
+
+        if (!resultado[grupo]) resultado[grupo] = 0;
+        if (iniciaLocacao) resultado[grupo] += quantidade;
+        if (encerraLocacao) resultado[grupo] -= quantidade;
+
+        return resultado;
+      }, {});
+
+    const ordem = ["Mini Grua 500kg", "Mini Grua 1T", "Mini Grua"];
+
+    return Object.entries(totais)
+      .filter(([, total]) => total !== 0)
+      .sort(([grupoA], [grupoB]) => {
+        const posicaoA = ordem.indexOf(grupoA);
+        const posicaoB = ordem.indexOf(grupoB);
+
+        if (posicaoA === -1 && posicaoB === -1) return grupoA.localeCompare(grupoB);
+        if (posicaoA === -1) return 1;
+        if (posicaoB === -1) return -1;
+        return posicaoA - posicaoB;
+      })
+      .map(([grupo, total]) => ({ grupo, total }));
+  };
+
+  const contarServicos = (obra, equipamento, servico) => {
+    return atividades
+      .filter((a) =>
+        atividadePertenceObra(a, obra) &&
         a.equipamento === equipamento &&
         a.servico === servico &&
         a.dataLiberacao
-    ).length;
+      )
+      .reduce((total, atividade) => total + (Number(atividade.quantidade) || 1), 0);
   };
 
   const selecionarObra = (obra) => {
     setObraSelecionada(obra);
   };
 
-  const servicosExecutados = (obraNome) => {
+  const servicosExecutados = (obra) => {
     return atividades
-      .filter((a) => a.obra === obraNome && a.dataLiberacao)
+      .filter((a) => atividadePertenceObra(a, obra) && a.dataLiberacao)
       .sort((a, b) => new Date(b.dataLiberacao) - new Date(a.dataLiberacao));
   };
+
+  const formatarEquipamento = (item) => {
+    if (item.equipamento === "Mini Grua") {
+      return item.tipoMiniGrua ? `Mini Grua ${item.tipoMiniGrua}` : "Mini Grua";
+    }
+
+    if (item.equipamento !== "Balancinho") return item.equipamento;
+    const tipo = item.tipoBalancinho === "Manual" ? "Manual" : "Elétrico";
+    return `Balancinho ${tipo}`;
+  };
+
+  const obrasOrdenadas = [...obras].sort((a, b) => {
+    const ativosA =
+      calcularAtivos(a, "Balancinho") + calcularAtivos(a, "Mini Grua");
+    const ativosB =
+      calcularAtivos(b, "Balancinho") + calcularAtivos(b, "Mini Grua");
+
+    return ativosB - ativosA;
+  });
+
+  const resumoBalancinhosSelecionados = obraSelecionada
+    ? calcularAtivosBalancinho(obraSelecionada)
+    : [];
+  const resumoMiniGruasSelecionadas = obraSelecionada
+    ? calcularAtivosMiniGrua(obraSelecionada)
+    : [];
 
   return (
     <div className="p-4 space-y-4">
@@ -65,7 +180,7 @@ export default function DetalhesObra() {
 
       {!obraSelecionada ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {obras.map((obra) => (
+          {obrasOrdenadas.map((obra) => (
             <div
               key={obra.id}
               className="p-4 border rounded shadow cursor-pointer bg-white"
@@ -73,9 +188,21 @@ export default function DetalhesObra() {
             >
               <p className="text-sm text-gray-500">{obra.construtora}</p>
               <p className="text-lg font-semibold">{obra.nome}</p>
-              <p className="text-sm">Balancinhos ativos: {calcularAtivos(obra.nome, "Balancinho")}</p>
-              {calcularAtivos(obra.nome, "Mini Grua") > 0 && (
-                <p className="text-sm">Mini Gruas ativas: {calcularAtivos(obra.nome, "Mini Grua")}</p>
+              <p className="text-sm">Balancinhos ativos: {calcularAtivos(obra, "Balancinho")}</p>
+              {calcularAtivosBalancinho(obra).map((item) => (
+                <p key={item.grupo} className="text-sm">
+                  {item.grupo}: {item.total}
+                </p>
+              ))}
+              {calcularAtivos(obra, "Mini Grua") > 0 && (
+                <>
+                  <p className="text-sm">Mini Gruas ativas: {calcularAtivos(obra, "Mini Grua")}</p>
+                  {calcularAtivosMiniGrua(obra).map((item) => (
+                    <p key={item.grupo} className="text-sm">
+                      {item.grupo}: {item.total}
+                    </p>
+                  ))}
+                </>
               )}
             </div>
           ))}
@@ -95,34 +222,65 @@ export default function DetalhesObra() {
             {obraSelecionada.engenheiro && <p><strong>Engenheiro:</strong> {obraSelecionada.engenheiro}</p>}
             {obraSelecionada.endereco && <p><strong>Endereço:</strong> {obraSelecionada.endereco}</p>}
             {obraSelecionada.observacoes && <p><strong>Observações:</strong> {obraSelecionada.observacoes}</p>}
-            <p><strong>Balancinhos ativos:</strong> {calcularAtivos(obraSelecionada.nome, "Balancinho")}</p>
-            <p><strong>Mini Gruas ativas:</strong> {calcularAtivos(obraSelecionada.nome, "Mini Grua")}</p>
+            <div>
+              <p><strong>Balancinhos ativos:</strong> {calcularAtivos(obraSelecionada, "Balancinho")}</p>
+              {resumoBalancinhosSelecionados.map((item) => (
+                <p key={item.grupo} className="text-sm">
+                  {item.grupo}: {item.total}
+                </p>
+              ))}
+            </div>
+            <div>
+              <p><strong>Mini Gruas ativas:</strong> {calcularAtivos(obraSelecionada, "Mini Grua")}</p>
+              {resumoMiniGruasSelecionadas.map((item) => (
+                <p key={item.grupo} className="text-sm">
+                  {item.grupo}: {item.total}
+                </p>
+              ))}
+            </div>
           </div>
 
           <div>
             <h3 className="text-md font-semibold mt-2">📊 Quantidade de Serviços</h3>
             <p className="text-sm mt-1">
               <strong>Balancinho:</strong><br />
-              • Instalação: {contarServicos(obraSelecionada.nome, "Balancinho", "Instalação")}<br />
-              • Deslocamento: {contarServicos(obraSelecionada.nome, "Balancinho", "Deslocamento")}<br />
-              • Manutenção: {contarServicos(obraSelecionada.nome, "Balancinho", "Manutenção")}<br />
-              • Remoção: {contarServicos(obraSelecionada.nome, "Balancinho", "Remoção")}
+              • Instalação: {contarServicos(obraSelecionada, "Balancinho", "Instalação")}<br />
+              • Deslocamento: {contarServicos(obraSelecionada, "Balancinho", "Deslocamento")}<br />
+              • Manutenção: {contarServicos(obraSelecionada, "Balancinho", "Manutenção")}<br />
+              • Remoção: {contarServicos(obraSelecionada, "Balancinho", "Remoção")}<br />
+              <br />
+              <strong>Movimentações de locação:</strong><br />
+              • Somente aluguel / entrega: {contarServicos(obraSelecionada, "Balancinho", "Somente aluguel / entrega")}<br />
+              • Recolhimento / devolução: {contarServicos(obraSelecionada, "Balancinho", "Recolhimento / devolução")}
             </p>
             <p className="text-sm mt-2">
               <strong>Mini Grua:</strong><br />
-              • Instalação: {contarServicos(obraSelecionada.nome, "Mini Grua", "Instalação")}<br />
-              • Ascensão: {contarServicos(obraSelecionada.nome, "Mini Grua", "Ascensão")}<br />
-              • Remoção: {contarServicos(obraSelecionada.nome, "Mini Grua", "Remoção")}
+              • Instalação: {contarServicos(obraSelecionada, "Mini Grua", "Instalação")}<br />
+              • Ascensão: {contarServicos(obraSelecionada, "Mini Grua", "Ascensão")}<br />
+              • Remoção: {contarServicos(obraSelecionada, "Mini Grua", "Remoção")}<br />
+              <br />
+              <strong>Movimentações de locação:</strong><br />
+              • Somente aluguel / entrega: {contarServicos(obraSelecionada, "Mini Grua", "Somente aluguel / entrega")}<br />
+              • Recolhimento / devolução: {contarServicos(obraSelecionada, "Mini Grua", "Recolhimento / devolução")}
             </p>
           </div>
 
           <div>
             <h3 className="text-lg font-semibold mt-4">🛠️ Serviços Executados</h3>
             <ul className="mt-2 space-y-2">
-              {servicosExecutados(obraSelecionada.nome).map((s) => (
-                <li key={s.id} className="border p-2 rounded bg-gray-50">
-                  <strong>{s.servico}</strong> - {s.equipamento}
-                  {s.tamanho && s.equipamento === "Balancinho" ? ` [${s.tamanho}m]` : ""} <br />
+              {servicosExecutados(obraSelecionada).map((s) => (
+                <li
+                  key={s.id}
+                  className="border p-2 rounded bg-gray-50 cursor-pointer hover:bg-blue-50"
+                  onClick={() => abrirAtividade?.(s.id)}
+                >
+                  <strong>{s.servico}</strong> - {formatarEquipamento(s)}
+                  {s.usaContrapeso && (
+                    <span className="ml-2 inline-block rounded bg-yellow-200 px-2 py-1 text-xs font-bold text-yellow-900">
+                      CONTRAPESO
+                    </span>
+                  )}
+                  {s.tamanho && s.equipamento === "Balancinho" ? ` [${s.tamanho}m]` : ""} | Quantidade: {s.quantidade || 1}<br />
                   Agendado: {formatarData(s.dataAgendamento)} — Liberado: {s.dataLiberacao ? formatarData(s.dataLiberacao) : "—"}
                 </li>
               ))}

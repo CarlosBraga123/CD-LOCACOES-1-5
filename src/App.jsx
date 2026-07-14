@@ -6,9 +6,11 @@ import Atividades from "./components/Atividades";
 import Agenda from "./components/Agenda.tsx";
 import RelatorioFinanceiro from "./components/RelatorioFinanceiro";
 import RelatorioServicos from "./components/RelatorioServicos";
+import RelatorioLocacao from "./components/RelatorioLocacao";
 import DetalhesObra from "./components/DetalhesObra";
 import BackupImportacao from "./components/BackupImportacao";
 import Configuracoes from "./components/Configuracoes";
+import TabelaComercial from "./components/TabelaComercial";
 import Usuarios from "./components/Usuarios";
 import Login from "./components/Login";
 import ListaDeTarefas from "./components/ListaDeTarefas";
@@ -32,9 +34,11 @@ export default function App() {
       case "atividades": return "Atividades";
       case "relatoriofinanceiro": return "Relatório Financeiro";
       case "relatorioservicos": return "Relatório de Serviços";
+      case "relatoriolocacao": return "Relatório de Locação";
       case "detalhesobra": return "Detalhes da Obra";
       case "backup": return "Backup";
       case "configuracoes": return "Configurações";
+      case "tabelacomercial": return "Tabela Comercial";
       case "usuarios": return "Usuários";
       case "tarefas": return "Lista de Tarefas";
       default: return "CD Locações";
@@ -43,16 +47,24 @@ export default function App() {
 
   const renderContent = () => {
     switch (selectedPage) {
-      case "dashboard": return <Dashboard />;
+      case "dashboard": return <Dashboard abrirAtividade={(id) => {
+        localStorage.setItem("atividadeParaEditar", String(id));
+        setSelectedPage("atividades");
+      }} />;
       case "construtoras": return <Construtoras />;
       case "obras": return <Obras />;
       case "atividades": return <Atividades />;
       case "agenda": return <Agenda />;
       case "relatoriofinanceiro": return <RelatorioFinanceiro />;
       case "relatorioservicos": return <RelatorioServicos />;
-      case "detalhesobra": return <DetalhesObra />;
+      case "relatoriolocacao": return <RelatorioLocacao />;
+      case "detalhesobra": return <DetalhesObra abrirAtividade={(id) => {
+        localStorage.setItem("atividadeParaEditar", String(id));
+        setSelectedPage("atividades");
+      }} />;
       case "backup": return <BackupImportacao />;
       case "configuracoes": return <Configuracoes />;
+      case "tabelacomercial": return <TabelaComercial />;
       case "usuarios": return <Usuarios />;
       case "tarefas": return <ListaDeTarefas usuario={usuarioLogado?.nome || "Usuário"} />;
       default: return <div className="p-4">Página não encontrada</div>;
@@ -101,6 +113,7 @@ export default function App() {
             <>
               <button onClick={() => { setSelectedPage("relatoriofinanceiro"); setMenuAberto(false); }} className="text-left hover:text-blue-600">💰 Relatório Financeiro</button>
               <button onClick={() => { setSelectedPage("relatorioservicos"); setMenuAberto(false); }} className="text-left hover:text-blue-600">📄 Relatório de Serviços</button>
+              <button onClick={() => { setSelectedPage("relatoriolocacao"); setMenuAberto(false); }} className="text-left hover:text-blue-600">Relatório de Locação</button>
             </>
           )}
           {usuarioLogado.tipo === "admin" && (
@@ -108,6 +121,7 @@ export default function App() {
               <button onClick={() => { setSelectedPage("detalhesobra"); setMenuAberto(false); }} className="text-left hover:text-blue-600">📌 Detalhes da Obra</button>
               <button onClick={() => { setSelectedPage("backup"); setMenuAberto(false); }} className="text-left hover:text-blue-600">💾 Backup</button>
               <button onClick={() => { setSelectedPage("usuarios"); setMenuAberto(false); }} className="text-left hover:text-blue-600">👥 Usuários</button>
+              <button onClick={() => { setSelectedPage("tabelacomercial"); setMenuAberto(false); }} className="text-left hover:text-blue-600">Tabela Comercial</button>
               <button onClick={() => { setSelectedPage("configuracoes"); setMenuAberto(false); }} className="text-left hover:text-blue-600">⚙️ Configurações</button>
             </>
           )}

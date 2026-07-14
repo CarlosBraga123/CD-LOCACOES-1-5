@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { atividadePertenceObra, normalizarTexto, obterChaveObra, obterObraDaAtividade } from "../utils/obras";
 
 export default function RelatorioServicos() {
   const [atividades, setAtividades] = useState([]);
@@ -23,11 +24,51 @@ export default function RelatorioServicos() {
     return `${d}/${m}/${y}`;
   };
 
+  const servicosValidos = ["Instalação", "Deslocamento", "Manutenção", "Ascensão", "Remoção"];
+  const atividadeCobraServico = (atividade) => {
+    if (atividade.cobraServico === false) return false;
+    if (atividade.cobraServico === true) return true;
+    return servicosValidos.includes(atividade.servico);
+  };
+
+  const formatarEquipamento = (atividade) => {
+    if (atividade.equipamento === "Mini Grua") {
+      return atividade.tipoMiniGrua ? `Mini Grua ${atividade.tipoMiniGrua}` : "Mini Grua";
+    }
+
+    if (atividade.equipamento !== "Balancinho") return atividade.equipamento;
+    if (atividade.tipoBalancinho === "Manual") return "Balancinho Manual";
+    return "Balancinho Elétrico";
+  };
+
+  const obterChaveObraCadastrada = (obra) =>
+    obterChaveObra({ obraId: obra.id, obra: obra.nome, construtora: obra.construtora });
+
+  const atividadeDentroDoFiltroObra = (atividade) => {
+    if (!filtros.obra) return true;
+
+    const obraFiltrada = obras.find((obra) => obterChaveObraCadastrada(obra) === filtros.obra);
+    if (obraFiltrada) return atividadePertenceObra(atividade, obraFiltrada);
+
+    return obterChaveObra(atividade) === filtros.obra;
+  };
+
+  const obterRotuloObra = (atividade) => {
+    const obra = obterObraDaAtividade(atividade, obras);
+    return `${obra?.construtora || atividade.construtora || "Sem construtora"} - ${
+      obra?.nome || String(atividade.obra || "Sem obra").trim()
+    }`;
+  };
+
   const filtradas = atividades
     .filter((a) => a.dataLiberacao)
+    .filter(atividadeCobraServico)
     .filter((a) => {
-      const dentroConstrutora = !filtros.construtora || a.construtora === filtros.construtora;
-      const dentroObra = !filtros.obra || a.obra === filtros.obra;
+      const obraAtividade = obterObraDaAtividade(a, obras);
+      const dentroConstrutora =
+        !filtros.construtora ||
+        normalizarTexto(obraAtividade?.construtora || a.construtora) === normalizarTexto(filtros.construtora);
+      const dentroObra = atividadeDentroDoFiltroObra(a);
       const dentroPeriodo =
         (!filtros.dataInicio || a.dataLiberacao >= filtros.dataInicio) &&
         (!filtros.dataFim || a.dataLiberacao <= filtros.dataFim);
@@ -37,16 +78,18 @@ export default function RelatorioServicos() {
 
   const obrasPorMes = atividades
     .filter((a) => a.dataLiberacao?.startsWith(mesSelecionado))
+    .filter(atividadeCobraServico)
     .filter((a) => a.servico !== "Manutenção")
     .reduce((acc, a) => {
-      const chave = `${a.construtora} - ${a.obra}`;
-      if (!acc[chave]) acc[chave] = { Balancinho: [], "Mini Grua": [] };
+      const chave = obterChaveObra(a);
+      if (!acc[chave]) acc[chave] = { rotulo: obterRotuloObra(a), Balancinho: [], "Mini Grua": [] };
       acc[chave][a.equipamento].push(a);
       return acc;
     }, {});
 
   const totaisMes = atividades
     .filter((a) => a.dataLiberacao?.startsWith(mesSelecionado))
+    .filter(atividadeCobraServico)
     .filter((a) => a.servico !== "Manutenção")
     .reduce(
       (acc, a) => {
@@ -82,13 +125,17 @@ export default function RelatorioServicos() {
     const wb = XLSX.utils.book_new();
     const wsData = [[`Relatório de fechamento do mês ${formatarData(mesSelecionado + "-01").slice(3)}`]];
 
-    Object.entries(obrasPorMes).forEach(([obra, dados]) => {
+    Object.values(obrasPorMes).forEach((dados) => {
       wsData.push([]);
-      wsData.push([obra]);
+      wsData.push([dados.rotulo]);
       wsData.push(["Data", "Equipamento", "Serviço"]);
       ["Balancinho", "Mini Grua"].forEach((eq) => {
         dados[eq].forEach((a) => {
-          wsData.push([formatarData(a.dataLiberacao), eq, a.servico]);
+          wsData.push([
+            formatarData(a.dataLiberacao),
+            `${formatarEquipamento(a)}${a.usaContrapeso ? " - CONTRAPESO" : ""}`,
+            a.servico
+          ]);
         });
       });
     });
@@ -152,16 +199,23 @@ export default function RelatorioServicos() {
               </div>
 
               <div className="space-y-6 mt-4">
-                {Object.entries(obrasPorMes).map(([obra, dados]) => (
-                  <div key={obra} className="border p-3 rounded bg-white shadow-sm">
-                    <h3 className="font-semibold text-md mb-1">🏗️ {obra}</h3>
+                {Object.entries(obrasPorMes).map(([chaveObra, dados]) => (
+                  <div key={chaveObra} className="border p-3 rounded bg-white shadow-sm">
+                    <h3 className="font-semibold text-md mb-1">🏗️ {dados.rotulo}</h3>
 
                     {dados.Balancinho.length > 0 && (
                       <div className="mt-2">
                         <strong>Balancinho:</strong>
                         <ul className="list-disc pl-5 text-sm">
                           {dados.Balancinho.sort((a, b) => new Date(a.dataLiberacao) - new Date(b.dataLiberacao)).map((a) => (
-                            <li key={a.id}>{a.servico.toUpperCase()} — Data {formatarData(a.dataLiberacao)}</li>
+                            <li key={a.id}>
+                              {a.servico.toUpperCase()} — Data {formatarData(a.dataLiberacao)} ({formatarEquipamento(a)})
+                              {a.usaContrapeso && (
+                                <span className="ml-2 inline-block rounded bg-yellow-200 px-2 py-1 text-xs font-bold text-yellow-900">
+                                  CONTRAPESO
+                                </span>
+                              )}
+                            </li>
                           ))}
                         </ul>
                       </div>
@@ -208,7 +262,7 @@ export default function RelatorioServicos() {
               {obras
                 .filter((o) => !filtros.construtora || o.construtora === filtros.construtora)
                 .map((o) => (
-                  <option key={o.id} value={o.nome}>{o.nome}</option>
+                  <option key={o.id} value={obterChaveObraCadastrada(o)}>{o.nome}</option>
                 ))}
             </select>
 
@@ -230,7 +284,12 @@ export default function RelatorioServicos() {
             <ul className="mt-4 space-y-2">
               {filtradas.map((item) => (
                 <li key={item.id} className="border p-3 rounded bg-white shadow-sm">
-                  <strong>{item.servico} - {item.equipamento}</strong>
+                  <strong>{item.servico} - {formatarEquipamento(item)}</strong>
+                  {item.usaContrapeso && (
+                    <span className="ml-2 inline-block rounded bg-yellow-200 px-2 py-1 text-xs font-bold text-yellow-900">
+                      CONTRAPESO
+                    </span>
+                  )}
                   {item.equipamento === "Balancinho" && item.tamanho ? ` [${item.tamanho}m]` : ""}<br />
                   {item.construtora} / {item.obra} <br />
                   Liberado: {formatarData(item.dataLiberacao)}

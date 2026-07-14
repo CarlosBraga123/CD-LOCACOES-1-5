@@ -705,6 +705,13 @@ function Publicar {
 
 try {
   Mostrar-Cabecalho
+  Testar-PreRequisitos
+
+  if (-not (Obter-ControlePublicador)) {
+    Inicializar-ControlePublicador
+    return
+  }
+
   Write-Host "1 - Simular publicacao"
   Write-Host "2 - Publicar em Producao"
   Write-Host "3 - Sair"

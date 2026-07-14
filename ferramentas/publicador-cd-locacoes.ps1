@@ -128,16 +128,33 @@ function Testar-CaminhoIgnorado {
   if ($normalizado -like "dist/*" -or $normalizado -eq "dist") { return $true }
   if ($normalizado -eq ".env" -or $normalizado -like ".env.*") { return $true }
   if ($normalizado -eq ".npm-cache" -or $normalizado -like ".npm-cache/*") { return $true }
+  if ($normalizado -like "BACKUP_PUBLICADOR/*" -or $normalizado -eq "BACKUP_PUBLICADOR") { return $true }
+  if ($normalizado -eq ".publicador-cd-locacoes.json") { return $true }
 
   return $false
 }
 
-function Obter-UltimoCommit {
-  $hashCompleto = (Invocar-Git -Repositorio $Desenvolvimento -Argumentos @("rev-parse", "HEAD")).Saida[0].ToString().Trim()
-  $hashCurto = (Invocar-Git -Repositorio $Desenvolvimento -Argumentos @("rev-parse", "--short", "HEAD")).Saida[0].ToString().Trim()
-  $mensagem = (Invocar-Git -Repositorio $Desenvolvimento -Argumentos @("log", "-1", "--pretty=%s")).Saida[0].ToString().Trim()
-  $data = (Invocar-Git -Repositorio $Desenvolvimento -Argumentos @("log", "-1", "--date=iso-local", "--pretty=%cd")).Saida[0].ToString().Trim()
-  $linhas = (Invocar-Git -Repositorio $Desenvolvimento -Argumentos @("diff-tree", "--no-commit-id", "--name-status", "-r", "-M", "HEAD")).Saida
+function Testar-CommitExiste {
+  param([Parameter(Mandatory = $true)][string]$Hash)
+
+  $resultado = Invocar-Git -Repositorio $Desenvolvimento -Argumentos @("cat-file", "-e", "$Hash^{commit}") -PermitirFalha
+  return $resultado.Codigo -eq 0
+}
+
+function Obter-InfoCommit {
+  param([Parameter(Mandatory = $true)][string]$Hash)
+
+  $linha = (Invocar-Git -Repositorio $Desenvolvimento -Argumentos @("log", "-1", "--pretty=%H%x09%h%x09%s", $Hash)).Saida[0].ToString()
+  $partes = $linha -split "`t", 3
+  return [pscustomobject]@{
+    HashCompleto = $partes[0]
+    HashCurto = $partes[1]
+    Mensagem = $partes[2]
+  }
+}
+
+function Converter-DiffNameStatus {
+  param([Parameter(Mandatory = $true)]$Linhas)
 
   $arquivos = @()
   foreach ($linha in $linhas) {
@@ -161,30 +178,88 @@ function Obter-UltimoCommit {
     $arquivos += [pscustomobject]@{ Status = $tipo; Antigo = $null; Novo = $caminho; Exibir = "[$tipo] $caminho" }
   }
 
+  return $arquivos
+}
+
+function Obter-PublicacaoPendente {
+  param([Parameter(Mandatory = $true)][string]$HashBase)
+
+  if (-not (Testar-CommitExiste -Hash $HashBase)) {
+    throw "O hash de controle nao existe no repositorio de Desenvolvimento: $HashBase"
+  }
+
+  $headCompleto = (Invocar-Git -Repositorio $Desenvolvimento -Argumentos @("rev-parse", "HEAD")).Saida[0].ToString().Trim()
+  $headCurto = (Invocar-Git -Repositorio $Desenvolvimento -Argumentos @("rev-parse", "--short", "HEAD")).Saida[0].ToString().Trim()
+  $baseInfo = Obter-InfoCommit -Hash $HashBase
+
+  if ($baseInfo.HashCompleto -eq $headCompleto) {
+    return [pscustomobject]@{
+      BaseHashCompleto = $baseInfo.HashCompleto
+      BaseHashCurto = $baseInfo.HashCurto
+      HeadHashCompleto = $headCompleto
+      HeadHashCurto = $headCurto
+      Commits = @()
+      MensagemSugerida = "Publica atualizacoes aprovadas do Desenvolvimento"
+      Arquivos = @()
+    }
+  }
+
+  $linhasCommits = (Invocar-Git -Repositorio $Desenvolvimento -Argumentos @("log", "--reverse", "--pretty=%H%x09%h%x09%s", "$($baseInfo.HashCompleto)..HEAD")).Saida
+  $commits = @()
+  foreach ($linha in $linhasCommits) {
+    $texto = $linha.ToString()
+    if (-not $texto.Trim()) { continue }
+    $partes = $texto -split "`t", 3
+    $commits += [pscustomobject]@{
+      HashCompleto = $partes[0]
+      HashCurto = $partes[1]
+      Mensagem = $partes[2]
+    }
+  }
+
+  $linhasDiff = (Invocar-Git -Repositorio $Desenvolvimento -Argumentos @("diff", "--name-status", "-M", $baseInfo.HashCompleto, "HEAD")).Saida
+  $arquivos = Converter-DiffNameStatus -Linhas $linhasDiff
+  $mensagemSugerida = if ($commits.Count -eq 1) {
+    $commits[0].Mensagem
+  } else {
+    "Publica atualizacoes aprovadas do Desenvolvimento"
+  }
+
   return [pscustomobject]@{
-    HashCompleto = $hashCompleto
-    HashCurto = $hashCurto
-    Mensagem = $mensagem
-    Data = $data
+    BaseHashCompleto = $baseInfo.HashCompleto
+    BaseHashCurto = $baseInfo.HashCurto
+    HeadHashCompleto = $headCompleto
+    HeadHashCurto = $headCurto
+    Commits = $commits
+    MensagemSugerida = $mensagemSugerida
     Arquivos = $arquivos
   }
 }
 
 function Mostrar-Previa {
-  param([Parameter(Mandatory = $true)]$Commit)
+  param([Parameter(Mandatory = $true)]$Publicacao)
 
-  Write-Host "Ultimo commit de Desenvolvimento:"
+  if ($Publicacao.Commits.Count -eq 0) {
+    Write-Host "A Producao ja esta sincronizada com o Desenvolvimento."
+    Write-Host ""
+    Write-Host "Nenhum commit pendente."
+    Write-Host ""
+    return
+  }
+
+  Write-Host "Commits ainda nao publicados:"
   Write-Host ""
-  Write-Host "Hash: $($Commit.HashCurto)"
-  Write-Host "Mensagem: $($Commit.Mensagem)"
-  Write-Host "Data: $($Commit.Data)"
+  for ($indice = 0; $indice -lt $Publicacao.Commits.Count; $indice += 1) {
+    $commit = $Publicacao.Commits[$indice]
+    Write-Host "$($indice + 1). $($commit.HashCurto) - $($commit.Mensagem)"
+  }
   Write-Host ""
   Write-Host "Arquivos que serao publicados:"
   Write-Host ""
-  if ($Commit.Arquivos.Count -eq 0) {
+  if ($Publicacao.Arquivos.Count -eq 0) {
     Write-Host "Nenhum arquivo valido para publicar."
   } else {
-    foreach ($arquivo in $Commit.Arquivos) {
+    foreach ($arquivo in $Publicacao.Arquivos) {
       Write-Host $arquivo.Exibir
     }
   }
@@ -197,6 +272,113 @@ function Obter-ControlePublicador {
   $caminho = Join-Path $Producao $ControlePublicador
   if (-not (Test-Path -LiteralPath $caminho -PathType Leaf)) { return $null }
   return Get-Content -LiteralPath $caminho -Raw | ConvertFrom-Json
+}
+
+function Salvar-ControlePublicador {
+  param([Parameter(Mandatory = $true)]$Controle)
+
+  $Controle | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $Producao $ControlePublicador) -Encoding UTF8
+}
+
+function Inicializar-ControlePublicador {
+  param([switch]$Simulacao)
+
+  Write-Host "Controle de publicacoes ainda nao inicializado."
+  Write-Host ""
+  Write-Host "1 - Marcar o HEAD atual como ja publicado"
+  Write-Host "2 - Informar manualmente o commit de Desenvolvimento ja publicado"
+  Write-Host "3 - Apenas simular escolhendo um commit inicial"
+  Write-Host "4 - Sair"
+  Write-Host ""
+
+  do {
+    $opcao = Read-Host "Escolha uma opcao"
+  } while ($opcao -notin @("1", "2", "3", "4"))
+
+  if ($opcao -eq "1") {
+    if ($Simulacao) {
+      Write-Host "No modo de simulacao esta opcao nao cria nem altera o controle."
+      Write-Host "Para inicializar o controle, escolha Publicar em Producao e use esta opcao."
+      return $null
+    }
+
+    Write-Host ""
+    Write-Host "ATENCAO:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Use esta opcao somente se a Producao ja estiver completamente"
+    Write-Host "sincronizada com todas as alteracoes atuais do Desenvolvimento."
+    Write-Host ""
+    Write-Host "Nenhum arquivo sera copiado nesta inicializacao."
+    Write-Host ""
+    $confirmacao = Read-Host "Digite CONFIRMAR para continuar"
+    if ($confirmacao -ne "CONFIRMAR") {
+      Write-Host "Inicializacao cancelada."
+      return $null
+    }
+
+    Preparar-GitignoreProducao
+    $headCompleto = (Invocar-Git -Repositorio $Desenvolvimento -Argumentos @("rev-parse", "HEAD")).Saida[0].ToString().Trim()
+    $headInfo = Obter-InfoCommit -Hash $headCompleto
+    $controle = [pscustomobject]@{
+      ultimoCommitDesenvolvimentoPublicado = $headInfo.HashCompleto
+      dataPublicacao = (Get-Date).ToString("o")
+      mensagemCommitDesenvolvimento = $headInfo.Mensagem
+      commitProducao = ""
+      arquivosPublicados = @()
+      mensagensCommitsDesenvolvimento = @($headInfo.Mensagem)
+    }
+    Salvar-ControlePublicador -Controle $controle
+    Write-Host "Controle inicializado com o HEAD atual: $($headInfo.HashCurto)"
+    return $null
+  }
+
+  if ($opcao -eq "2") {
+    if ($Simulacao) {
+      Write-Host "No modo de simulacao esta opcao nao cria nem altera o controle."
+      Write-Host "Use a opcao 3 para simular a partir de um commit inicial."
+      return $null
+    }
+
+    $hash = Read-Host "Informe o hash do commit de Desenvolvimento ja publicado"
+    if (-not (Testar-CommitExiste -Hash $hash)) {
+      throw "Commit informado nao existe no Desenvolvimento: $hash"
+    }
+
+    $info = Obter-InfoCommit -Hash $hash
+    Write-Host ""
+    Write-Host "Serao considerados pendentes todos os commits posteriores a:"
+    Write-Host "$($info.HashCurto) - $($info.Mensagem)"
+    Write-Host ""
+
+    if (-not (Perguntar-SimNao -Mensagem "Gravar este hash como referencia?" -Padrao "N")) {
+      Write-Host "Inicializacao cancelada."
+      return $null
+    }
+
+    Preparar-GitignoreProducao
+    $controle = [pscustomobject]@{
+      ultimoCommitDesenvolvimentoPublicado = $info.HashCompleto
+      dataPublicacao = (Get-Date).ToString("o")
+      mensagemCommitDesenvolvimento = $info.Mensagem
+      commitProducao = ""
+      arquivosPublicados = @()
+      mensagensCommitsDesenvolvimento = @($info.Mensagem)
+    }
+    Salvar-ControlePublicador -Controle $controle
+    Write-Host "Controle inicializado com o commit informado: $($info.HashCurto)"
+    return $null
+  }
+
+  if ($opcao -eq "3") {
+    $hash = Read-Host "Informe o hash inicial para simulacao"
+    $publicacao = Obter-PublicacaoPendente -HashBase $hash
+    Mostrar-Previa -Publicacao $publicacao
+    Write-Host "SIMULACAO: o controle nao foi criado nem alterado."
+    return $null
+  }
+
+  Write-Host "Saindo sem alterar nada."
+  return $null
 }
 
 function Adicionar-LinhaGitignoreProducao {
@@ -355,20 +537,22 @@ function Executar-BuildProducao {
 
 function Registrar-Publicacao {
   param(
-    [Parameter(Mandatory = $true)]$CommitDev,
+    [Parameter(Mandatory = $true)]$Publicacao,
     [Parameter(Mandatory = $true)]$Arquivos,
     [string]$CommitProducao = ""
   )
 
+  $mensagens = @($Publicacao.Commits | ForEach-Object { $_.Mensagem })
   $controle = [pscustomobject]@{
-    ultimoCommitDesenvolvimentoPublicado = $CommitDev.HashCompleto
+    ultimoCommitDesenvolvimentoPublicado = $Publicacao.HeadHashCompleto
     dataPublicacao = (Get-Date).ToString("o")
-    mensagemCommitDesenvolvimento = $CommitDev.Mensagem
+    mensagemCommitDesenvolvimento = ($mensagens -join " | ")
     arquivosPublicados = @($Arquivos | ForEach-Object { $_.Exibir })
     commitProducao = $CommitProducao
+    mensagensCommitsDesenvolvimento = $mensagens
   }
 
-  $controle | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Producao $ControlePublicador) -Encoding UTF8
+  Salvar-ControlePublicador -Controle $controle
 }
 
 function Publicar {
@@ -377,10 +561,26 @@ function Publicar {
   Mostrar-Cabecalho
   Testar-PreRequisitos
   Testar-DesenvolvimentoLimpo
-  $commit = Obter-UltimoCommit
-  Mostrar-Previa -Commit $commit
 
-  if ($commit.Arquivos.Count -eq 0) {
+  $controle = Obter-ControlePublicador
+  if (-not $controle) {
+    Inicializar-ControlePublicador -Simulacao:$Simulacao
+    return
+  }
+
+  $hashBase = [string]$controle.ultimoCommitDesenvolvimentoPublicado
+  if ([string]::IsNullOrWhiteSpace($hashBase)) {
+    throw "Arquivo de controle existe, mas nao possui ultimoCommitDesenvolvimentoPublicado."
+  }
+
+  $publicacao = Obter-PublicacaoPendente -HashBase $hashBase
+  Mostrar-Previa -Publicacao $publicacao
+
+  if ($publicacao.Commits.Count -eq 0) {
+    return
+  }
+
+  if ($publicacao.Arquivos.Count -eq 0) {
     Write-Host "Nada a publicar."
     return
   }
@@ -393,11 +593,6 @@ function Publicar {
   }
 
   Preparar-GitignoreProducao
-  $controle = Obter-ControlePublicador
-  if ($controle -and $controle.ultimoCommitDesenvolvimentoPublicado -eq $commit.HashCompleto) {
-    Write-Host "Este commit de Desenvolvimento ja foi publicado anteriormente." -ForegroundColor Yellow
-    if (-not (Perguntar-SimNao -Mensagem "Publicar novamente?" -Padrao "N")) { return }
-  }
 
   if (-not (Perguntar-SimNao -Mensagem "Deseja copiar estes arquivos para Producao?" -Padrao "N")) {
     Write-Host "Operacao cancelada. Nada foi copiado."
@@ -409,8 +604,8 @@ function Publicar {
   $resultadoCopia = $null
 
   try {
-    $resultadoCopia = Copiar-ComBackup -Arquivos $commit.Arquivos -PastaBackup $pastaBackup
-    Validar-Copia -Arquivos $commit.Arquivos
+    $resultadoCopia = Copiar-ComBackup -Arquivos $publicacao.Arquivos -PastaBackup $pastaBackup
+    Validar-Copia -Arquivos $publicacao.Arquivos
   } catch {
     Write-Host $_.Exception.Message -ForegroundColor Red
     Write-Host "Nao sera executado build nem Git na Producao."
@@ -448,9 +643,16 @@ function Publicar {
 
   Write-Host ""
   Write-Host "Mensagem sugerida:"
-  Write-Host $commit.Mensagem
+  Write-Host $publicacao.MensagemSugerida
+  if ($publicacao.Commits.Count -gt 1) {
+    Write-Host ""
+    Write-Host "Commits incluidos:"
+    foreach ($commitPendente in $publicacao.Commits) {
+      Write-Host "- $($commitPendente.Mensagem)"
+    }
+  }
   $mensagemCommit = Read-Host "Pressione ENTER para usar essa mensagem ou digite outra mensagem"
-  if ([string]::IsNullOrWhiteSpace($mensagemCommit)) { $mensagemCommit = $commit.Mensagem }
+  if ([string]::IsNullOrWhiteSpace($mensagemCommit)) { $mensagemCommit = $publicacao.MensagemSugerida }
   while ([string]::IsNullOrWhiteSpace($mensagemCommit)) {
     $mensagemCommit = Read-Host "Digite uma mensagem de commit valida"
   }
@@ -485,16 +687,16 @@ function Publicar {
   }
 
   $hashProd = (Invocar-Git -Repositorio $Producao -Argumentos @("rev-parse", "--short", "HEAD")).Saida[0].ToString().Trim()
-  Registrar-Publicacao -CommitDev $commit -Arquivos $commit.Arquivos -CommitProducao $hashProd
+  Registrar-Publicacao -Publicacao $publicacao -Arquivos $publicacao.Arquivos -CommitProducao $hashProd
 
   Write-Host ""
   Write-Host "=================================================="
   Write-Host "       PUBLICACAO CONCLUIDA COM SUCESSO"
   Write-Host "=================================================="
   Write-Host ""
-  Write-Host "Commit de Desenvolvimento: $($commit.HashCurto)"
+  Write-Host "Commit de Desenvolvimento: $($publicacao.HeadHashCurto)"
   Write-Host "Commit de Producao: $hashProd"
-  Write-Host "Arquivos publicados: $($commit.Arquivos.Count)"
+  Write-Host "Arquivos publicados: $($publicacao.Arquivos.Count)"
   Write-Host "Build: OK"
   Write-Host "Push: OK"
   Write-Host ""

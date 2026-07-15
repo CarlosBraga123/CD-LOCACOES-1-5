@@ -163,15 +163,26 @@ function Executar-GitDireto {
   param([Parameter(Mandatory = $true)][string[]]$Argumentos)
 
   $localAtual = Get-Location
+  $preferenciaErroAtual = $ErrorActionPreference
   try {
     Set-Location -LiteralPath $Projeto
-    & git @Argumentos
+    Write-Host ""
+    Write-Host "> git $($Argumentos -join ' ')"
+    Write-Host ""
+    $ErrorActionPreference = "Continue"
+    $saidaGit = & git.exe @Argumentos 2>&1
     $codigoGit = $LASTEXITCODE
   } finally {
+    $ErrorActionPreference = $preferenciaErroAtual
     Set-Location -LiteralPath $localAtual
   }
 
-  return $codigoGit
+  $saidaGit | ForEach-Object { Write-Host $_ }
+
+  return [pscustomobject]@{
+    Codigo = $codigoGit
+    Saida = @($saidaGit)
+  }
 }
 
 function Executar-Fluxo {
@@ -224,24 +235,27 @@ function Executar-Fluxo {
     return
   }
 
-  $codigoGitAdd = Executar-GitDireto -Argumentos @("add", ".")
-  if ($codigoGitAdd -ne 0) {
+  $resultadoGitAdd = Executar-GitDireto -Argumentos @("add", ".")
+  if ($resultadoGitAdd.Codigo -ne 0) {
     Write-Host ""
     Write-Host "git add falhou. O commit e o push nao serao executados." -ForegroundColor Red
+    Write-Host "Codigo de saida: $($resultadoGitAdd.Codigo)"
     return
   }
 
-  $codigoGitCommit = Executar-GitDireto -Argumentos @("commit", "-m", $mensagemCommit)
-  if ($codigoGitCommit -ne 0) {
+  $resultadoGitCommit = Executar-GitDireto -Argumentos @("commit", "-m", $mensagemCommit)
+  if ($resultadoGitCommit.Codigo -ne 0) {
     Write-Host ""
     Write-Host "git commit falhou. O push nao sera executado." -ForegroundColor Red
+    Write-Host "Codigo de saida: $($resultadoGitCommit.Codigo)"
     return
   }
 
-  $codigoGitPush = Executar-GitDireto -Argumentos @("push", "origin", "main")
-  if ($codigoGitPush -ne 0) {
+  $resultadoGitPush = Executar-GitDireto -Argumentos @("push", "origin", "main")
+  if ($resultadoGitPush.Codigo -ne 0) {
     Write-Host ""
     Write-Host "git push falhou. O commit local foi criado, mas nao foi enviado." -ForegroundColor Red
+    Write-Host "Codigo de saida: $($resultadoGitPush.Codigo)"
     Write-Host ""
     Write-Host "Voce pode tentar manualmente:"
     Write-Host "git push origin main"

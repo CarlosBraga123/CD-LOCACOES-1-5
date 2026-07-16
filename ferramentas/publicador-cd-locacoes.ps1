@@ -1,4 +1,7 @@
 $ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 $Desenvolvimento = "C:\Users\CaFe\Pictures\Nova pasta\CD-LOCACOES-1-5"
 $Producao = "C:\Users\CaFe\OneDrive\Documentos\PROJETO APP\CD-LOCACOES-PRODUCAO"
@@ -41,24 +44,81 @@ function Perguntar-SimNao {
   }
 }
 
+function Converter-ArgumentoProcesso {
+  param([AllowNull()][string]$Argumento)
+
+  if ($null -eq $Argumento) { return '""' }
+  if ($Argumento -notmatch '[\s"]') { return $Argumento }
+  return '"' + ($Argumento -replace '\\(?=\\*")', '$&$&' -replace '"', '\"') + '"'
+}
+
 function Invocar-Comando {
   param(
     [Parameter(Mandatory = $true)][string]$Programa,
     [string[]]$Argumentos = @(),
-    [string]$Diretorio = ""
+    [string]$Diretorio = "",
+    [switch]$NaoExibirSaida
   )
 
-  $localAtual = Get-Location
-  try {
-    if ($Diretorio) { Set-Location -LiteralPath $Diretorio }
-    $saida = & $Programa @Argumentos 2>&1
-    $codigo = $LASTEXITCODE
-    return [pscustomobject]@{
-      Codigo = $codigo
-      Saida = @($saida)
-    }
-  } finally {
-    Set-Location -LiteralPath $localAtual
+  $psi = [System.Diagnostics.ProcessStartInfo]::new()
+  $psi.FileName = $Programa
+  $psi.Arguments = (($Argumentos | ForEach-Object { Converter-ArgumentoProcesso $_ }) -join " ")
+  if ($Diretorio) { $psi.WorkingDirectory = $Diretorio }
+  $psi.UseShellExecute = $false
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
+  $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+  $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+
+  $processo = [System.Diagnostics.Process]::new()
+  $processo.StartInfo = $psi
+
+  [void]$processo.Start()
+  $stdoutTask = $processo.StandardOutput.ReadToEndAsync()
+  $stderrTask = $processo.StandardError.ReadToEndAsync()
+  $processo.WaitForExit()
+  $codigo = $processo.ExitCode
+  $stdout = $stdoutTask.Result
+  $stderr = $stderrTask.Result
+
+  $processo.Dispose()
+  $saida = @()
+  if (-not [string]::IsNullOrEmpty($stdout)) {
+    $saida += $stdout -split "\r?\n" | Where-Object { $_ -ne "" }
+  }
+  if (-not [string]::IsNullOrEmpty($stderr)) {
+    $saida += $stderr -split "\r?\n" | Where-Object { $_ -ne "" }
+  }
+
+  if (-not $NaoExibirSaida) {
+    $saida | ForEach-Object { Write-Host $_ }
+  }
+
+  return [pscustomobject]@{
+    Codigo = $codigo
+    Saida = @($saida)
+    Comando = "$Programa $($Argumentos -join ' ')".Trim()
+  }
+}
+
+function Mostrar-ErroComando {
+  param(
+    [Parameter(Mandatory = $true)][string]$Nome,
+    [Parameter(Mandatory = $true)]$Resultado
+  )
+
+  Write-Host ""
+  Write-Host "ERRO AO EXECUTAR:" -ForegroundColor Red
+  Write-Host $Nome -ForegroundColor Red
+  Write-Host ""
+  Write-Host "Codigo de saida:" -ForegroundColor Red
+  Write-Host $Resultado.Codigo -ForegroundColor Red
+  Write-Host ""
+  Write-Host "Saida completa:" -ForegroundColor Red
+  if ($Resultado.Saida.Count -gt 0) {
+    $Resultado.Saida | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+  } else {
+    Write-Host "(sem saida)" -ForegroundColor Red
   }
 }
 
@@ -66,12 +126,14 @@ function Invocar-Git {
   param(
     [Parameter(Mandatory = $true)][string]$Repositorio,
     [Parameter(Mandatory = $true)][string[]]$Argumentos,
-    [switch]$PermitirFalha
+    [switch]$PermitirFalha,
+    [switch]$ExibirSaida
   )
 
-  $resultado = Invocar-Comando -Programa "git" -Argumentos (@("-C", $Repositorio) + $Argumentos)
+  $resultado = Invocar-Comando -Programa "git" -Argumentos (@("-C", $Repositorio) + $Argumentos) -NaoExibirSaida:(!$ExibirSaida)
   if ($resultado.Codigo -ne 0 -and -not $PermitirFalha) {
-    throw "Falha ao executar git $($Argumentos -join ' ') em $Repositorio`n$($resultado.Saida -join "`n")"
+    Mostrar-ErroComando -Nome "git $($Argumentos -join ' ')" -Resultado $resultado
+    throw "Falha ao executar git $($Argumentos -join ' ') em $Repositorio"
   }
   return $resultado
 }
@@ -122,6 +184,7 @@ function Testar-CaminhoIgnorado {
   if (-not $normalizado) { return $true }
 
   if ($normalizado -eq "PUBLICAR-CD-LOCACOES.bat") { return $true }
+  if ($normalizado -eq "ENVIAR-DESENVOLVIMENTO.bat") { return $true }
   if ($normalizado -like "ferramentas/*") { return $true }
   if ($normalizado -like ".git/*" -or $normalizado -eq ".git") { return $true }
   if ($normalizado -like "node_modules/*" -or $normalizado -eq "node_modules") { return $true }
@@ -528,11 +591,18 @@ function Restaurar-Backup {
 function Executar-BuildProducao {
   Write-Host ""
   Write-Host "Executando npm run build na Producao..."
-  $resultado = Invocar-Comando -Programa "npm" -Argumentos @("run", "build") -Diretorio $Producao
-  $resultado.Saida | ForEach-Object { Write-Host $_ }
+  $resultado = Invocar-Comando -Programa "npm.cmd" -Argumentos @("run", "build") -Diretorio $Producao
   if ($resultado.Codigo -ne 0) {
+    Mostrar-ErroComando -Nome "npm run build" -Resultado $resultado
     throw "BUILD FALHOU.`nNenhum commit ou push foi realizado."
   }
+}
+
+function Testar-RepositorioLimpo {
+  param([Parameter(Mandatory = $true)][string]$Repositorio)
+
+  $status = Invocar-Git -Repositorio $Repositorio -Argumentos @("status", "--porcelain") -PermitirFalha
+  return [string]::IsNullOrWhiteSpace(($status.Saida -join "`n").Trim())
 }
 
 function Registrar-Publicacao {
@@ -669,18 +739,34 @@ function Publicar {
     return
   }
 
-  Invocar-Git -Repositorio $Producao -Argumentos @("add", ".") | Out-Null
-  $commitProd = Invocar-Git -Repositorio $Producao -Argumentos @("commit", "-m", $mensagemCommit) -PermitirFalha
-  $commitProd.Saida | ForEach-Object { Write-Host $_ }
-  if ($commitProd.Codigo -ne 0) {
-    Write-Host "git commit falhou. O push nao sera executado." -ForegroundColor Red
+  $gitAdd = Invocar-Git -Repositorio $Producao -Argumentos @("add", ".") -PermitirFalha -ExibirSaida
+  if ($gitAdd.Codigo -ne 0) {
+    Mostrar-ErroComando -Nome "git add ." -Resultado $gitAdd
+    Write-Host "git add falhou. Commit e push nao serao executados." -ForegroundColor Red
     return
   }
 
-  $push = Invocar-Git -Repositorio $Producao -Argumentos @("push", "origin", "main") -PermitirFalha
-  $push.Saida | ForEach-Object { Write-Host $_ }
+  $commitCriado = $false
+  $commitProd = Invocar-Git -Repositorio $Producao -Argumentos @("commit", "-m", $mensagemCommit) -PermitirFalha -ExibirSaida
+  if ($commitProd.Codigo -ne 0) {
+    if (Testar-RepositorioLimpo -Repositorio $Producao) {
+      Write-Host "Nenhuma alteracao pendente para commit."
+    } else {
+      Mostrar-ErroComando -Nome "git commit -m `"$mensagemCommit`"" -Resultado $commitProd
+      Write-Host "git commit falhou. O push nao sera executado." -ForegroundColor Red
+      return
+    }
+  } else {
+    $commitCriado = $true
+  }
+
+  $push = Invocar-Git -Repositorio $Producao -Argumentos @("push", "origin", "main") -PermitirFalha -ExibirSaida
   if ($push.Codigo -ne 0) {
+    Mostrar-ErroComando -Nome "git push origin main" -Resultado $push
     Write-Host "git push falhou." -ForegroundColor Red
+    if ($commitCriado) {
+      Write-Host "O commit local foi criado, mas ainda nao foi enviado."
+    }
     Write-Host "Voce pode repetir manualmente na Producao:"
     Write-Host "git push origin main"
     return

@@ -591,7 +591,8 @@ function Restaurar-Backup {
 function Executar-BuildProducao {
   Write-Host ""
   Write-Host "Executando npm run build na Producao..."
-  $resultado = Invocar-Comando -Programa "npm.cmd" -Argumentos @("run", "build") -Diretorio $Producao
+  $cmd = if ([string]::IsNullOrWhiteSpace($env:ComSpec)) { "cmd.exe" } else { $env:ComSpec }
+  $resultado = Invocar-Comando -Programa $cmd -Argumentos @("/d", "/s", "/c", "npm run build") -Diretorio $Producao
   if ($resultado.Codigo -ne 0) {
     Mostrar-ErroComando -Nome "npm run build" -Resultado $resultado
     throw "BUILD FALHOU.`nNenhum commit ou push foi realizado."

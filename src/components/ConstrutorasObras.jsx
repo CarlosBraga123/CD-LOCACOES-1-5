@@ -1775,12 +1775,81 @@ export default function ConstrutorasObras({
         </div>
 
         {!obra ? (
-          <p className="rounded-xl border bg-gray-50 p-4 text-sm text-gray-500">
-            Selecione uma obra para visualizar os detalhes completos.
-          </p>
+          obrasAtivas.length === 0 ? (
+            <p className="rounded-xl border bg-gray-50 p-4 text-sm text-gray-500">
+              Nenhuma obra com equipamento ativo. Use o seletor acima para
+              consultar qualquer obra cadastrada.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {obrasAtivas.map(
+                ({ obra: obraAtiva, construtora: construtoraAtiva, totalAtivos, categorias }) => {
+                  const categoriasVisiveis = categorias.filter(
+                    (categoria) => categoria.valor > 0
+                  );
+                  const rotulosCategorias = {
+                    eletricos: "Balancinhos Elétricos",
+                    manuais: "Balancinhos Manuais",
+                    contrapesos: "Kits de Contrapeso",
+                    miniGruas: "Mini Gruas",
+                  };
+
+                  return (
+                    <button
+                      type="button"
+                      key={obterChaveObraCadastro(obraAtiva)}
+                      onClick={() =>
+                        abrirDetalhesObra(obraAtiva, construtoraAtiva)
+                      }
+                      className="rounded-xl border bg-white p-4 text-left shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 active:bg-blue-100"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">
+                            {obraAtiva.nome || "Obra sem nome"}
+                          </p>
+                          <p className="truncate text-sm text-gray-500">
+                            {construtoraAtiva?.nome ||
+                              obraAtiva.construtora ||
+                              "Sem construtora"}
+                          </p>
+                        </div>
+                        <div className="flex min-w-[48px] flex-col items-center rounded-lg bg-blue-50 px-2 py-1 text-blue-700">
+                          <span className="text-xl font-bold leading-none">
+                            {totalAtivos}
+                          </span>
+                          <span className="text-[10px] uppercase">ativos</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {categoriasVisiveis.map((categoria) => (
+                          <span
+                            key={categoria.chave}
+                            className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700"
+                          >
+                            {rotulosCategorias[categoria.chave] ||
+                              categoria.rotulo}
+                            : <strong>{categoria.valor}</strong>
+                          </span>
+                        ))}
+                      </div>
+                    </button>
+                  );
+                }
+              )}
+            </div>
+          )
         ) : (
           <>
             <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setObraDetalhesSelecionadaChave(null)}
+                className="rounded-xl border bg-white px-4 py-2 text-gray-600 shadow-sm"
+              >
+                Ver lista de obras
+              </button>
               <button
                 type="button"
                 onClick={() => abrirNovaAtividade(obra, construtora)}

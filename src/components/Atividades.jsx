@@ -66,10 +66,11 @@ const obterQuantidadeContrapesoFormulario = (valor, quantidadePadrao = 1) => {
   return quantidade;
 };
 
-export default function Atividades() {
+export default function Atividades({ contextoNavegacao, limparContextoNavegacao }) {
   const topoRef = useRef(null);
   const atividadeRefs = useRef({});
   const filtrosAntesLocalizacaoRef = useRef(null);
+  const contextoConsumidoRef = useRef(false);
   const [construtoras, setConstrutoras] = useState([]);
   const [obras, setObras] = useState([]);
   const [atividades, setAtividades] = useState([]);
@@ -80,6 +81,7 @@ export default function Atividades() {
   const [atividadeContrato, setAtividadeContrato] = useState(null);
   const [atividadeParaLocalizarId, setAtividadeParaLocalizarId] = useState(null);
   const [atividadeDestacadaId, setAtividadeDestacadaId] = useState(null);
+  const [dadosCarregados, setDadosCarregados] = useState(false);
   const camposValor = [
     "valorUnitarioServico",
     "adicionalServicoContrapeso",
@@ -130,6 +132,7 @@ export default function Atividades() {
 
     const obrasSalvas = JSON.parse(localStorage.getItem("obras")) || [];
     setObras(obrasSalvas);
+    setDadosCarregados(true);
 
     const atividadeParaLocalizar = localStorage.getItem("atividadeParaLocalizar");
     if (atividadeParaLocalizar) {
@@ -164,6 +167,86 @@ export default function Atividades() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (
+      !dadosCarregados ||
+      contextoConsumidoRef.current ||
+      contextoNavegacao?.destino !== "atividades"
+    ) {
+      return;
+    }
+
+    if (contextoNavegacao.acao === "localizar-atividade") {
+      contextoConsumidoRef.current = true;
+      setAtividadeParaLocalizarId(contextoNavegacao.atividadeId || null);
+      limparContextoNavegacao?.();
+      return;
+    }
+
+    if (
+      contextoNavegacao.origem !== "construtoras-obras" ||
+      contextoNavegacao.acao !== "nova-atividade"
+    ) {
+      return;
+    }
+
+    const obraId = contextoNavegacao.obraId;
+    let obra = obraId
+      ? obras.find((item) => String(item.id) === String(obraId)) || null
+      : null;
+
+    if (!obra && !obraId && contextoNavegacao.obraNome) {
+      obra =
+        obras.find(
+          (item) =>
+            normalizarTexto(item.nome) === normalizarTexto(contextoNavegacao.obraNome) &&
+            (!contextoNavegacao.construtoraNome ||
+              normalizarTexto(item.construtora) ===
+                normalizarTexto(contextoNavegacao.construtoraNome))
+        ) || null;
+    }
+
+    const construtora =
+      (obra?.construtoraId &&
+        construtoras.find(
+          (item) => String(item.id) === String(obra.construtoraId)
+        )) ||
+      construtoras.find(
+        (item) =>
+          normalizarTexto(item.nome) ===
+          normalizarTexto(obra?.construtora || contextoNavegacao.construtoraNome)
+      ) ||
+      (!obra &&
+        contextoNavegacao.construtoraId &&
+        construtoras.find(
+          (item) => String(item.id) === String(contextoNavegacao.construtoraId)
+        )) ||
+      null;
+
+    contextoConsumidoRef.current = true;
+
+    if (obra) {
+      setForm((formularioAtual) => ({
+        ...formularioAtual,
+        construtora: construtora?.nome || obra.construtora || contextoNavegacao.construtoraNome || "",
+        obra: obra.nome || contextoNavegacao.obraNome || "",
+        obraId: obra.id || "",
+      }));
+
+      requestAnimationFrame(() => {
+        topoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
+    limparContextoNavegacao?.();
+  }, [
+    contextoNavegacao,
+    construtoras,
+    dadosCarregados,
+    limparContextoNavegacao,
+    obras,
+  ]);
 
   const obterRegrasOperacionais = (servico, equipamento = form.equipamento) => {
     const regra = obterRegraOperacao(equipamento, servico);
@@ -830,6 +913,16 @@ export default function Atividades() {
     });
   }, [atividadesOrdenadas, filtrosLista, obras]);
 
+  const encerrarLocalizacaoAtividade = () => {
+    setAtividadeDestacadaId(null);
+    setAtividadeParaLocalizarId(null);
+
+    if (filtrosAntesLocalizacaoRef.current) {
+      setFiltrosLista(filtrosAntesLocalizacaoRef.current);
+      filtrosAntesLocalizacaoRef.current = null;
+    }
+  };
+
   useEffect(() => {
     if (!atividadeParaLocalizarId || atividades.length === 0) return;
 
@@ -858,12 +951,7 @@ export default function Atividades() {
     setAtividadeDestacadaId(String(atividadeParaLocalizarId));
 
     const timeout = window.setTimeout(() => {
-      setAtividadeDestacadaId(null);
-      setAtividadeParaLocalizarId(null);
-      if (filtrosAntesLocalizacaoRef.current) {
-        setFiltrosLista(filtrosAntesLocalizacaoRef.current);
-        filtrosAntesLocalizacaoRef.current = null;
-      }
+      encerrarLocalizacaoAtividade();
     }, 3500);
 
     return () => window.clearTimeout(timeout);
@@ -1401,6 +1489,21 @@ export default function Atividades() {
             if (elemento) atividadeRefs.current[String(item.id)] = elemento;
             else delete atividadeRefs.current[String(item.id)];
           }}
+          onMouseDown={
+            String(atividadeDestacadaId) === String(item.id)
+              ? encerrarLocalizacaoAtividade
+              : undefined
+          }
+          onTouchStart={
+            String(atividadeDestacadaId) === String(item.id)
+              ? encerrarLocalizacaoAtividade
+              : undefined
+          }
+          onFocusCapture={
+            String(atividadeDestacadaId) === String(item.id)
+              ? encerrarLocalizacaoAtividade
+              : undefined
+          }
           className={`border rounded-xl p-4 shadow flex flex-col gap-2 transition-colors duration-500 ${
             String(atividadeDestacadaId) === String(item.id)
               ? "border-blue-500 bg-blue-50 ring-2 ring-blue-300"

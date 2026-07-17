@@ -3,100 +3,17 @@ import {
   converterMoedaParaNumero,
   formatarMoeda,
   formatarNumeroParaEdicao,
-  normalizarValoresMonetarios,
 } from "../utils/moeda";
-
-const tabelaComercialInicial = {
-  versao: 1,
-  servicos: {
-    "Balancinho-Eletrico-Instalação": 1000,
-    "Balancinho-Eletrico-Deslocamento": 1000,
-    "Balancinho-Eletrico-Manutenção": 0,
-    "Balancinho-Eletrico-Remoção": 1000,
-    "Balancinho-Manual-Instalação": 900,
-    "Balancinho-Manual-Deslocamento": 900,
-    "Balancinho-Manual-Manutenção": 0,
-    "Balancinho-Manual-Remoção": 900,
-    "Balancinho-Contrapeso-Instalação": 0,
-    "Balancinho-Contrapeso-Deslocamento": 0,
-    "Balancinho-Contrapeso-Manutenção": 0,
-    "Balancinho-Contrapeso-Remoção": 0,
-    "Mini Grua-500kg-Instalação": 4000,
-    "Mini Grua-500kg-Ascensão": 900,
-    "Mini Grua-500kg-Manutenção": 0,
-    "Mini Grua-500kg-Remoção": 4000,
-    "Mini Grua-1T-Instalação": 8500,
-    "Mini Grua-1T-Ascensão": 1000,
-    "Mini Grua-1T-Manutenção": 0,
-    "Mini Grua-1T-Remoção": 8500,
-  },
-  locacoes: {
-    "Balancinho-Eletrico": 1200,
-    "Balancinho-Manual": 1000,
-    "Balancinho-Contrapeso": 600,
-    "Mini Grua-500kg": 0,
-    "Mini Grua-1T": 0,
-  },
-};
-
-const camposConstrutora = {
-  nome: "",
-  razaoSocial: "",
-  nomeFantasia: "",
-  cnpj: "",
-  inscricaoEstadual: "",
-  inscricaoMunicipal: "",
-  ativa: true,
-  responsavel: "",
-  cargoResponsavel: "",
-  telefone: "",
-  whatsapp: "",
-  email: "",
-  emailFinanceiro: "",
-  cep: "",
-  logradouro: "",
-  numero: "",
-  complemento: "",
-  bairro: "",
-  cidade: "",
-  estado: "",
-  condicaoPagamento: "",
-  responsavelComercial: "",
-  observacoesInternas: "",
-};
-
-const criarFormularioConstrutora = (construtora = {}) => ({
-  ...camposConstrutora,
-  ...construtora,
-  ativa: construtora.ativa !== false,
-});
-
-const prepararConstrutoraParaSalvar = (formulario) => ({
-  ...formulario,
-  nome: String(formulario.nome || "").trim(),
-  razaoSocial: String(formulario.razaoSocial || "").trim(),
-  nomeFantasia: String(formulario.nomeFantasia || "").trim(),
-  cnpj: String(formulario.cnpj || "").trim(),
-  inscricaoEstadual: String(formulario.inscricaoEstadual || "").trim(),
-  inscricaoMunicipal: String(formulario.inscricaoMunicipal || "").trim(),
-  responsavel: String(formulario.responsavel || "").trim(),
-  cargoResponsavel: String(formulario.cargoResponsavel || "").trim(),
-  telefone: String(formulario.telefone || "").trim(),
-  whatsapp: String(formulario.whatsapp || "").trim(),
-  email: String(formulario.email || "").trim(),
-  emailFinanceiro: String(formulario.emailFinanceiro || "").trim(),
-  cep: String(formulario.cep || "").trim(),
-  logradouro: String(formulario.logradouro || "").trim(),
-  numero: String(formulario.numero || "").trim(),
-  complemento: String(formulario.complemento || "").trim(),
-  bairro: String(formulario.bairro || "").trim(),
-  cidade: String(formulario.cidade || "").trim(),
-  estado: String(formulario.estado || "").trim(),
-  condicaoPagamento: String(formulario.condicaoPagamento || "").trim(),
-  responsavelComercial: String(formulario.responsavelComercial || "").trim(),
-  observacoesInternas: String(formulario.observacoesInternas || "").trim(),
-  ativa: formulario.ativa !== false,
-});
+import {
+  criarFormularioConstrutora,
+  mesclarConstrutoraEditada,
+  prepararConstrutoraParaSalvar,
+} from "../utils/construtoras";
+import {
+  copiarTabelaComercialPadrao as criarCopiaTabelaComercialPadrao,
+  normalizarTabelaComercial as normalizarTabelaComercialCompartilhada,
+  normalizarTabelaComercialParaSalvar,
+} from "../utils/tabelaComercial";
 
 const Campo = ({ label, value, onChange, type = "text", className = "", ...props }) => (
   <label className={`block text-sm font-medium ${className}`}>
@@ -155,29 +72,16 @@ export default function Construtoras({ contextoNavegacao, limparContextoNavegaca
 
   const copiarTabelaComercialPadrao = () => {
     const tabelaPadraoSalva = JSON.parse(localStorage.getItem("tabelaComercialPadrao") || "null");
-    const tabelaPadrao = normalizarTabelaComercial(tabelaPadraoSalva || tabelaComercialInicial);
-
-    return {
-      origem: "padrao",
-      versaoBase: tabelaPadrao.versao,
-      atualizadoEm: new Date().toISOString(),
-      servicos: { ...tabelaPadrao.servicos },
-      locacoes: { ...tabelaPadrao.locacoes },
-    };
+    return criarCopiaTabelaComercialPadrao(
+      tabelaPadraoSalva,
+      new Date().toISOString()
+    );
   };
 
-  const normalizarTabelaComercial = (tabela = {}) => ({
-    ...tabela,
-    versao: tabela.versao || 1,
-    servicos: {
-      ...tabelaComercialInicial.servicos,
-      ...(tabela.servicos || {}),
-    },
-    locacoes: {
-      ...tabelaComercialInicial.locacoes,
-      ...(tabela.locacoes || {}),
-    },
-  });
+  const normalizarTabelaComercial = (tabela = {}) =>
+    normalizarTabelaComercialCompartilhada(tabela, {
+      incluirVersaoPadrao: true,
+    });
 
   const obterChaveCampoTabela = (grupo, chave) => `${grupo}:${chave}`;
 
@@ -223,11 +127,10 @@ export default function Construtoras({ contextoNavegacao, limparContextoNavegaca
     });
   };
 
-  const normalizarTabelaParaSalvar = (tabela) => ({
-    ...normalizarTabelaComercial(tabela),
-    servicos: normalizarValoresMonetarios(normalizarTabelaComercial(tabela).servicos),
-    locacoes: normalizarValoresMonetarios(normalizarTabelaComercial(tabela).locacoes),
-  });
+  const normalizarTabelaParaSalvar = (tabela) =>
+    normalizarTabelaComercialParaSalvar(tabela, {
+      incluirVersaoPadrao: true,
+    });
 
   const renderCamposTabela = (grupo) => {
     const tabela = normalizarTabelaComercial(tabelaEditada || copiarTabelaComercialPadrao());
@@ -434,16 +337,15 @@ export default function Construtoras({ contextoNavegacao, limparContextoNavegaca
 
     const atualizadas = construtoras.map((c) =>
       c.id === editandoId
-        ? {
-            ...c,
-            ...dados,
-            id: c.id,
+        ? mesclarConstrutoraEditada({
+            registroExistente: c,
+            dadosEditados: dados,
             tabelaComercial: {
               ...normalizarTabelaParaSalvar(tabelaEditada || c.tabelaComercial || copiarTabelaComercialPadrao()),
               origem: tabelaEditada?.origem || c.tabelaComercial?.origem || "padrao",
               atualizadoEm: new Date().toISOString(),
             },
-          }
+          })
         : c
     );
     setConstrutoras(atualizadas);

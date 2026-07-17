@@ -3,156 +3,20 @@ import {
   converterMoedaParaNumero,
   formatarMoeda,
   formatarNumeroParaEdicao,
-  normalizarValoresMonetarios,
 } from "../utils/moeda";
-
-const tabelaComercialInicial = {
-  versao: 1,
-  servicos: {
-    "Balancinho-Eletrico-Instalação": 1000,
-    "Balancinho-Eletrico-Deslocamento": 1000,
-    "Balancinho-Eletrico-Manutenção": 0,
-    "Balancinho-Eletrico-Remoção": 1000,
-    "Balancinho-Manual-Instalação": 900,
-    "Balancinho-Manual-Deslocamento": 900,
-    "Balancinho-Manual-Manutenção": 0,
-    "Balancinho-Manual-Remoção": 900,
-    "Balancinho-Contrapeso-Instalação": 0,
-    "Balancinho-Contrapeso-Deslocamento": 0,
-    "Balancinho-Contrapeso-Manutenção": 0,
-    "Balancinho-Contrapeso-Remoção": 0,
-    "Mini Grua-500kg-Instalação": 4000,
-    "Mini Grua-500kg-Ascensão": 900,
-    "Mini Grua-500kg-Manutenção": 0,
-    "Mini Grua-500kg-Remoção": 4000,
-    "Mini Grua-1T-Instalação": 8500,
-    "Mini Grua-1T-Ascensão": 1000,
-    "Mini Grua-1T-Manutenção": 0,
-    "Mini Grua-1T-Remoção": 8500,
-  },
-  locacoes: {
-    "Balancinho-Eletrico": 1200,
-    "Balancinho-Manual": 1000,
-    "Balancinho-Contrapeso": 600,
-    "Mini Grua-500kg": 0,
-    "Mini Grua-1T": 0,
-  },
-};
-
-const situacoesObra = ["Ativa", "Paralisada", "Concluída", "Inativa"];
-
-const camposObra = {
-  nome: "",
-  construtora: "",
-  construtoraId: "",
-  cnpj: "",
-  cno: "",
-  codigoInterno: "",
-  situacao: "Ativa",
-  cep: "",
-  logradouro: "",
-  numero: "",
-  complemento: "",
-  bairro: "",
-  cidade: "",
-  estado: "",
-  pontoReferencia: "",
-  engenheiro: "",
-  endereco: "",
-  observacoes: "",
-  responsavel: "",
-  cargoResponsavel: "",
-  telefone: "",
-  whatsapp: "",
-  email: "",
-  horarioEntrega: "",
-  orientacoesAcesso: "",
-  enderecoEntregaDiferente: false,
-  enderecoEntrega: "",
-  contatos: [],
-};
-
-const criarContato = (dados = {}) => ({
-  id: dados.id || String(Date.now() + Math.random()),
-  tipo: dados.tipo || "Engenheiro",
-  nome: dados.nome || "",
-  cargo: dados.cargo || "",
-  crea: dados.crea || "",
-  telefone: dados.telefone || "",
-  whatsapp: dados.whatsapp || "",
-  email: dados.email || "",
-  principal: dados.principal === true,
-  ativo: dados.ativo !== false,
-});
-
-const criarFormularioObra = (obra = {}) => ({
-  ...camposObra,
-  ...obra,
-  situacao: obra.situacao || "Ativa",
-  enderecoEntregaDiferente: obra.enderecoEntregaDiferente === true,
-  contatos: Array.isArray(obra.contatos) ? obra.contatos.map(criarContato) : [],
-});
-
-const texto = (valor) => String(valor || "").trim();
-
-const contatoTemConteudo = (contato) =>
-  [
-    contato.tipo,
-    contato.nome,
-    contato.cargo,
-    contato.crea,
-    contato.telefone,
-    contato.whatsapp,
-    contato.email,
-  ].some((valor) => texto(valor));
-
-const prepararContatosParaSalvar = (contatos = []) =>
-  contatos
-    .map((contato) => ({
-      ...criarContato(contato),
-      tipo: texto(contato.tipo) || "Contato",
-      nome: texto(contato.nome),
-      cargo: texto(contato.cargo),
-      crea: texto(contato.crea),
-      telefone: texto(contato.telefone),
-      whatsapp: texto(contato.whatsapp),
-      email: texto(contato.email),
-      principal: contato.principal === true,
-      ativo: contato.ativo !== false,
-    }))
-    .filter(contatoTemConteudo);
-
-const prepararObraParaSalvar = (formulario) => ({
-  ...formulario,
-  nome: texto(formulario.nome),
-  construtora: texto(formulario.construtora),
-  construtoraId: formulario.construtoraId || "",
-  cnpj: texto(formulario.cnpj),
-  cno: texto(formulario.cno),
-  codigoInterno: texto(formulario.codigoInterno),
-  situacao: formulario.situacao || "Ativa",
-  cep: texto(formulario.cep),
-  logradouro: texto(formulario.logradouro),
-  numero: texto(formulario.numero),
-  complemento: texto(formulario.complemento),
-  bairro: texto(formulario.bairro),
-  cidade: texto(formulario.cidade),
-  estado: texto(formulario.estado),
-  pontoReferencia: texto(formulario.pontoReferencia),
-  engenheiro: texto(formulario.engenheiro),
-  endereco: texto(formulario.endereco),
-  observacoes: texto(formulario.observacoes),
-  responsavel: texto(formulario.responsavel),
-  cargoResponsavel: texto(formulario.cargoResponsavel),
-  telefone: texto(formulario.telefone),
-  whatsapp: texto(formulario.whatsapp),
-  email: texto(formulario.email),
-  horarioEntrega: texto(formulario.horarioEntrega),
-  orientacoesAcesso: texto(formulario.orientacoesAcesso),
-  enderecoEntregaDiferente: formulario.enderecoEntregaDiferente === true,
-  enderecoEntrega: texto(formulario.enderecoEntrega),
-  contatos: prepararContatosParaSalvar(formulario.contatos || []),
-});
+import {
+  aplicarConstrutoraAoFormularioObra,
+  criarContato,
+  criarFormularioObra,
+  mesclarObraEditada,
+  prepararObraParaSalvar,
+  situacoesObra,
+} from "../utils/cadastrosObras";
+import {
+  herdarTabelaComercialDaConstrutora,
+  normalizarTabelaComercial as normalizarTabelaComercialCompartilhada,
+  normalizarTabelaComercialParaSalvar,
+} from "../utils/tabelaComercial";
 
 const Campo = ({ label, value, onChange, type = "text", className = "", ...props }) => (
   <label className={`block text-sm font-medium ${className}`}>
@@ -230,11 +94,7 @@ export default function Obras({ contextoNavegacao, limparContextoNavegacao, nave
       const formulario = criarFormularioObra();
 
       if (construtora) {
-        setNovaObra({
-          ...formulario,
-          construtora: construtora.nome || "",
-          construtoraId: construtora.id || "",
-        });
+        setNovaObra(aplicarConstrutoraAoFormularioObra(formulario, construtora));
       } else {
         setNovaObra(formulario);
       }
@@ -346,39 +206,27 @@ export default function Obras({ contextoNavegacao, limparContextoNavegacao, nave
 
   const atualizarConstrutoraFormulario = (formulario, setFormulario, nomeConstrutora) => {
     const construtora = obterConstrutoraPorNome(nomeConstrutora);
-    setFormulario({
-      ...formulario,
-      construtora: nomeConstrutora,
-      construtoraId: construtora?.id || "",
-    });
+    setFormulario(
+      aplicarConstrutoraAoFormularioObra(formulario, {
+        id: construtora?.id || "",
+        nome: nomeConstrutora,
+      })
+    );
   };
 
   const copiarTabelaComercialDaConstrutora = (nomeConstrutora) => {
     const construtora = obterConstrutoraPorNome(nomeConstrutora);
     const tabelaPadraoSalva = JSON.parse(localStorage.getItem("tabelaComercialPadrao") || "null");
-    const tabelaPadrao = normalizarTabelaComercial(tabelaPadraoSalva || tabelaComercialInicial);
-    const tabelaOrigem = construtora?.tabelaComercial || tabelaPadrao;
-
-    return {
-      origem: "construtora",
-      construtoraId: construtora?.id || null,
+    return herdarTabelaComercialDaConstrutora({
+      tabelaConstrutora: construtora?.tabelaComercial,
+      tabelaPadraoSalva,
+      construtoraId: construtora?.id,
       atualizadoEm: new Date().toISOString(),
-      servicos: { ...tabelaPadrao.servicos, ...(tabelaOrigem.servicos || {}) },
-      locacoes: { ...tabelaPadrao.locacoes, ...(tabelaOrigem.locacoes || {}) },
-    };
+    });
   };
 
-  const normalizarTabelaComercial = (tabela = {}) => ({
-    ...tabela,
-    servicos: {
-      ...tabelaComercialInicial.servicos,
-      ...(tabela.servicos || {}),
-    },
-    locacoes: {
-      ...tabelaComercialInicial.locacoes,
-      ...(tabela.locacoes || {}),
-    },
-  });
+  const normalizarTabelaComercial = (tabela = {}) =>
+    normalizarTabelaComercialCompartilhada(tabela);
 
   const obterChaveCampoTabela = (grupo, chave) => `${grupo}:${chave}`;
 
@@ -429,11 +277,8 @@ export default function Obras({ contextoNavegacao, limparContextoNavegacao, nave
     });
   };
 
-  const normalizarTabelaParaSalvar = (tabela) => ({
-    ...normalizarTabelaComercial(tabela),
-    servicos: normalizarValoresMonetarios(normalizarTabelaComercial(tabela).servicos),
-    locacoes: normalizarValoresMonetarios(normalizarTabelaComercial(tabela).locacoes),
-  });
+  const normalizarTabelaParaSalvar = (tabela) =>
+    normalizarTabelaComercialParaSalvar(tabela);
 
   const renderCamposTabela = (grupo) => {
     const tabela = normalizarTabelaComercial(
@@ -690,18 +535,16 @@ export default function Obras({ contextoNavegacao, limparContextoNavegacao, nave
     const construtora = obterConstrutoraPorNome(dados.construtora);
     const atualizadas = obras.map((o) =>
       o.id === editandoId
-        ? {
-            ...o,
-            ...dados,
-            id: o.id,
-            construtoraId: construtora?.id || dados.construtoraId || o.construtoraId || "",
-            tabelaComercial:
-              normalizarTabelaParaSalvar(
-                obraEditada.tabelaComercial ||
-                o.tabelaComercial ||
-                copiarTabelaComercialDaConstrutora(dados.construtora)
-              ),
-          }
+        ? mesclarObraEditada({
+            registroExistente: o,
+            dadosEditados: dados,
+            construtoraId: construtora?.id,
+            tabelaComercial: normalizarTabelaParaSalvar(
+              obraEditada.tabelaComercial ||
+              o.tabelaComercial ||
+              copiarTabelaComercialDaConstrutora(dados.construtora)
+            ),
+          })
         : o
     );
     setObras(atualizadas);

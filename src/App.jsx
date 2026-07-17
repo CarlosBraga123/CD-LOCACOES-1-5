@@ -38,6 +38,17 @@ export default function App() {
     setContextoNavegacao(null);
   };
 
+  const abrirAtividade = (id) => {
+    if (!id) return;
+
+    navegar("atividades", {
+      origem: "atividade-relacionada",
+      destino: "atividades",
+      acao: "localizar-atividade",
+      atividadeId: id,
+    });
+  };
+
   const renderTitle = () => {
     switch (selectedPage) {
       case "dashboard": return "Painel de Controle";
@@ -60,22 +71,16 @@ export default function App() {
 
   const renderContent = () => {
     switch (selectedPage) {
-      case "dashboard": return <Dashboard abrirAtividade={(id) => {
-        localStorage.setItem("atividadeParaLocalizar", String(id));
-        setSelectedPage("atividades");
-      }} />;
-      case "construtorasobras": return <ConstrutorasObras navegar={navegar} contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
+      case "dashboard": return <Dashboard abrirAtividade={abrirAtividade} />;
+      case "construtorasobras": return <ConstrutorasObras navegar={navegar} abrirAtividade={abrirAtividade} contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
       case "construtoras": return <Construtoras contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} navegar={navegar} />;
       case "obras": return <Obras contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} navegar={navegar} />;
-      case "atividades": return <Atividades />;
+      case "atividades": return <Atividades contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
       case "agenda": return <Agenda />;
       case "relatoriofinanceiro": return <RelatorioFinanceiro />;
       case "relatorioservicos": return <RelatorioServicos />;
       case "relatoriolocacao": return <RelatorioLocacao />;
-      case "detalhesobra": return <DetalhesObra abrirAtividade={(id) => {
-        localStorage.setItem("atividadeParaEditar", String(id));
-        setSelectedPage("atividades");
-      }} />;
+      case "detalhesobra": return <DetalhesObra abrirAtividade={abrirAtividade} contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
       case "backup": return <BackupImportacao />;
       case "configuracoes": return <Configuracoes />;
       case "tabelacomercial": return <TabelaComercial />;
@@ -115,7 +120,7 @@ export default function App() {
               <button onClick={() => navegar("obras")} className="text-left hover:text-blue-600">🧱 Obras</button>
             </>
           )}
-          <button onClick={() => { setSelectedPage("atividades"); setMenuAberto(false); }} className="text-left hover:text-blue-600">📋 Atividades</button>
+          <button onClick={() => navegar("atividades")} className="text-left hover:text-blue-600">📋 Atividades</button>
           <button
   onClick={() => { setSelectedPage("agenda"); setMenuAberto(false); }}
   className="text-left hover:text-blue-600"
@@ -133,7 +138,7 @@ export default function App() {
           )}
           {usuarioLogado.tipo === "admin" && (
             <>
-              <button onClick={() => { setSelectedPage("detalhesobra"); setMenuAberto(false); }} className="text-left hover:text-blue-600">📌 Detalhes da Obra</button>
+              <button onClick={() => navegar("detalhesobra")} className="text-left hover:text-blue-600">📌 Detalhes da Obra</button>
               <button onClick={() => { setSelectedPage("backup"); setMenuAberto(false); }} className="text-left hover:text-blue-600">💾 Backup</button>
               <button onClick={() => { setSelectedPage("usuarios"); setMenuAberto(false); }} className="text-left hover:text-blue-600">👥 Usuários</button>
               <button onClick={() => { setSelectedPage("tabelacomercial"); setMenuAberto(false); }} className="text-left hover:text-blue-600">Tabela Comercial</button>

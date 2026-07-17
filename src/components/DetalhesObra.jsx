@@ -1,12 +1,25 @@
 import { useEffect, useState } from "react";
-import { atividadePertenceObra } from "../utils/obras";
+import { normalizarTexto } from "../utils/obras";
 import { ordenarObrasPorEquipamentosAtivos } from "../utils/ordenacao";
-import { obterResumoEquipamentosAtivos } from "../utils/equipamentosAtivos";
+import {
+  calcularTotalAtivosPorEquipamento,
+  contarServicosObra,
+  formatarDataDetalhesObra,
+  formatarEquipamentoDetalhesObra,
+  obterResumoBalancinhosAtivos,
+  obterResumoMiniGruasAtivas,
+  obterServicosExecutadosObra,
+} from "../utils/detalhesObra";
 
-export default function DetalhesObra({ abrirAtividade }) {
+export default function DetalhesObra({
+  abrirAtividade,
+  contextoNavegacao,
+  limparContextoNavegacao,
+}) {
   const [obras, setObras] = useState([]);
   const [atividades, setAtividades] = useState([]);
   const [obraSelecionada, setObraSelecionada] = useState(null);
+  const [dadosCarregados, setDadosCarregados] = useState(false);
 
   useEffect(() => {
     const obrasSalvas = JSON.parse(localStorage.getItem("obras") || "[]");
@@ -14,62 +27,60 @@ export default function DetalhesObra({ abrirAtividade }) {
 
     const atividadesSalvas = JSON.parse(localStorage.getItem("atividades") || "[]");
     setAtividades(atividadesSalvas);
+    setDadosCarregados(true);
   }, []);
 
-  const formatarData = (data) => {
-    if (!data) return "";
-    const [y, m, d] = data.split("-");
-    return `${d}/${m}/${y}`;
-  };
+  useEffect(() => {
+    if (
+      !dadosCarregados ||
+      contextoNavegacao?.origem !== "construtoras-obras" ||
+      contextoNavegacao?.destino !== "detalhesobra" ||
+      contextoNavegacao?.acao !== "abrir-detalhes-obra"
+    ) {
+      return;
+    }
+
+    const obraId = contextoNavegacao.obraId;
+    let obra = null;
+
+    if (obraId) {
+      obra = obras.find((item) => String(item.id) === String(obraId)) || null;
+    } else if (contextoNavegacao.obraNome) {
+      obra =
+        obras.find(
+          (item) =>
+            normalizarTexto(item.nome) === normalizarTexto(contextoNavegacao.obraNome) &&
+            (!contextoNavegacao.construtoraNome ||
+              normalizarTexto(item.construtora) ===
+                normalizarTexto(contextoNavegacao.construtoraNome))
+        ) || null;
+    }
+
+    if (obra) setObraSelecionada(obra);
+    limparContextoNavegacao?.();
+  }, [contextoNavegacao, dadosCarregados, limparContextoNavegacao, obras]);
 
   const calcularAtivosBalancinho = (obra) =>
-    obterResumoEquipamentosAtivos(obra, atividades).filter((item) =>
-      ["Balancinho Elétrico", "Balancinho Manual", "Kit Contrapeso"].includes(item.grupo)
-    );
+    obterResumoBalancinhosAtivos(obra, atividades);
 
   const calcularAtivosMiniGrua = (obra) =>
-    obterResumoEquipamentosAtivos(obra, atividades).filter((item) =>
-      String(item.grupo || "").startsWith("Mini Grua")
-    );
+    obterResumoMiniGruasAtivas(obra, atividades);
 
-  const calcularAtivos = (obra, equipamento) => {
-    const resumo =
-      equipamento === "Balancinho"
-        ? calcularAtivosBalancinho(obra).filter((item) => item.grupo !== "Kit Contrapeso")
-        : calcularAtivosMiniGrua(obra);
+  const calcularAtivos = (obra, equipamento) =>
+    calcularTotalAtivosPorEquipamento(obra, equipamento, atividades);
 
-    return resumo.reduce((total, item) => total + Number(item.total || 0), 0);
-  };
-  const contarServicos = (obra, equipamento, servico) => {
-    return atividades
-      .filter((a) =>
-        atividadePertenceObra(a, obra) &&
-        a.equipamento === equipamento &&
-        a.servico === servico &&
-        a.dataLiberacao
-      )
-      .reduce((total, atividade) => total + (Number(atividade.quantidade) || 1), 0);
-  };
+  const contarServicos = (obra, equipamento, servico) =>
+    contarServicosObra(obra, equipamento, servico, atividades);
 
   const selecionarObra = (obra) => {
     setObraSelecionada(obra);
   };
 
-  const servicosExecutados = (obra) => {
-    return atividades
-      .filter((a) => atividadePertenceObra(a, obra) && a.dataLiberacao)
-      .sort((a, b) => new Date(b.dataLiberacao) - new Date(a.dataLiberacao));
-  };
+  const servicosExecutados = (obra) =>
+    obterServicosExecutadosObra(obra, atividades);
 
-  const formatarEquipamento = (item) => {
-    if (item.equipamento === "Mini Grua") {
-      return item.tipoMiniGrua ? `Mini Grua ${item.tipoMiniGrua}` : "Mini Grua";
-    }
-
-    if (item.equipamento !== "Balancinho") return item.equipamento;
-    const tipo = item.tipoBalancinho === "Manual" ? "Manual" : "Elétrico";
-    return `Balancinho ${tipo}`;
-  };
+  const formatarEquipamento = formatarEquipamentoDetalhesObra;
+  const formatarData = formatarDataDetalhesObra;
 
   const obrasOrdenadas = ordenarObrasPorEquipamentosAtivos(
     obras,

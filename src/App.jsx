@@ -24,8 +24,19 @@ const usuarioAdminSimulado = {
 
 export default function App() {
   const [selectedPage, setSelectedPage] = useState("dashboard");
+  const [contextoNavegacao, setContextoNavegacao] = useState(null);
   const [menuAberto, setMenuAberto] = useState(false);
   const [usuarioLogado, setUsuarioLogado] = useState(usuarioAdminSimulado);
+
+  const navegar = (pagina, contexto = null) => {
+    setContextoNavegacao(contexto);
+    setSelectedPage(pagina);
+    setMenuAberto(false);
+  };
+
+  const limparContextoNavegacao = () => {
+    setContextoNavegacao(null);
+  };
 
   const renderTitle = () => {
     switch (selectedPage) {
@@ -53,9 +64,9 @@ export default function App() {
         localStorage.setItem("atividadeParaLocalizar", String(id));
         setSelectedPage("atividades");
       }} />;
-      case "construtorasobras": return <ConstrutorasObras navegar={(pagina) => setSelectedPage(pagina)} />;
-      case "construtoras": return <Construtoras />;
-      case "obras": return <Obras />;
+      case "construtorasobras": return <ConstrutorasObras navegar={navegar} contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
+      case "construtoras": return <Construtoras contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} navegar={navegar} />;
+      case "obras": return <Obras contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} navegar={navegar} />;
       case "atividades": return <Atividades />;
       case "agenda": return <Agenda />;
       case "relatoriofinanceiro": return <RelatorioFinanceiro />;
@@ -99,9 +110,9 @@ export default function App() {
           )}
           {usuarioLogado.tipo === "admin" && (
             <>
-              <button onClick={() => { setSelectedPage("construtorasobras"); setMenuAberto(false); }} className="text-left hover:text-blue-600">Construtoras e Obras</button>
-              <button onClick={() => { setSelectedPage("construtoras"); setMenuAberto(false); }} className="text-left hover:text-blue-600">🏗️ Construtoras</button>
-              <button onClick={() => { setSelectedPage("obras"); setMenuAberto(false); }} className="text-left hover:text-blue-600">🧱 Obras</button>
+              <button onClick={() => navegar("construtorasobras")} className="text-left hover:text-blue-600">Construtoras e Obras</button>
+              <button onClick={() => navegar("construtoras")} className="text-left hover:text-blue-600">🏗️ Construtoras</button>
+              <button onClick={() => navegar("obras")} className="text-left hover:text-blue-600">🧱 Obras</button>
             </>
           )}
           <button onClick={() => { setSelectedPage("atividades"); setMenuAberto(false); }} className="text-left hover:text-blue-600">📋 Atividades</button>

@@ -68,7 +68,7 @@ const atividadesRecentesDaObra = (obra, atividades) =>
     })
     .slice(0, 5);
 
-export default function ConstrutorasObras({ navegar }) {
+export default function ConstrutorasObras({ navegar, contextoNavegacao, limparContextoNavegacao }) {
   const [construtoras, setConstrutoras] = useState([]);
   const [obras, setObras] = useState([]);
   const [atividades, setAtividades] = useState([]);
@@ -99,6 +99,13 @@ export default function ConstrutorasObras({ navegar }) {
       document.removeEventListener("visibilitychange", atualizarAoVoltar);
     };
   }, [carregarDados]);
+
+  useEffect(() => {
+    if (contextoNavegacao?.visualizacao === "gestao") {
+      setVisualizacao("gestao");
+      limparContextoNavegacao?.();
+    }
+  }, [contextoNavegacao, limparContextoNavegacao]);
 
   const buscaNormalizada = normalizarBusca(busca);
 
@@ -223,7 +230,44 @@ export default function ConstrutorasObras({ navegar }) {
     setObraAtivaAbertaId((atual) => (String(atual) === String(id) ? null : id));
   };
 
-  const navegarPara = (pagina) => navegar?.(pagina);
+  const navegarPara = (pagina, contexto = null) => navegar?.(pagina, contexto);
+
+  const editarConstrutora = (construtora) => {
+    navegarPara("construtoras", {
+      origem: "construtoras-obras",
+      destino: "construtoras",
+      acao: "editar-construtora",
+      id: construtora?.id || "",
+      construtoraId: construtora?.id || "",
+      retornarPara: "construtorasobras",
+      visualizacaoRetorno: "gestao",
+    });
+  };
+
+  const abrirNovaObra = (construtora = null) => {
+    navegarPara("obras", {
+      origem: "construtoras-obras",
+      destino: "obras",
+      acao: "nova-obra",
+      id: construtora?.id || "",
+      construtoraId: construtora?.id || "",
+      construtoraNome: construtora?.nome || "",
+      retornarPara: "construtorasobras",
+      visualizacaoRetorno: "gestao",
+    });
+  };
+
+  const editarObra = (obra) => {
+    navegarPara("obras", {
+      origem: "construtoras-obras",
+      destino: "obras",
+      acao: "editar-obra",
+      id: obra?.id || "",
+      obraId: obra?.id || "",
+      retornarPara: "construtorasobras",
+      visualizacaoRetorno: "gestao",
+    });
+  };
 
   const renderDetalheObra = ({ obra, construtora, resumo, compacto = false }) => {
     const contatoObra = obterContatoPrincipal(obra);
@@ -280,7 +324,7 @@ export default function ConstrutorasObras({ navegar }) {
           </button>
           <button
             type="button"
-            onClick={() => navegarPara("obras")}
+            onClick={() => editarObra(obra)}
             className="rounded-xl border bg-white px-4 py-2 text-blue-600 shadow-sm"
           >
             Editar Obra
@@ -366,14 +410,20 @@ export default function ConstrutorasObras({ navegar }) {
       <div className="flex flex-col gap-2 sm:flex-row">
         <button
           type="button"
-          onClick={() => navegarPara("construtoras")}
+          onClick={() => navegarPara("construtoras", {
+            origem: "construtoras-obras",
+            destino: "construtoras",
+            acao: "nova-construtora",
+            retornarPara: "construtorasobras",
+            visualizacaoRetorno: "gestao",
+          })}
           className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm"
         >
           Nova Construtora
         </button>
         <button
           type="button"
-          onClick={() => navegarPara("obras")}
+          onClick={() => abrirNovaObra()}
           className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm"
         >
           Nova Obra
@@ -425,14 +475,14 @@ export default function ConstrutorasObras({ navegar }) {
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <button
                       type="button"
-                      onClick={() => navegarPara("construtoras")}
+                      onClick={() => editarConstrutora(construtora)}
                       className="rounded-xl border bg-white px-4 py-2 text-sm text-blue-600 shadow-sm"
                     >
                       Editar Construtora
                     </button>
                     <button
                       type="button"
-                      onClick={() => navegarPara("obras")}
+                      onClick={() => abrirNovaObra(construtora)}
                       className="rounded-xl border bg-white px-4 py-2 text-sm text-blue-600 shadow-sm"
                     >
                       Nova Obra nesta Construtora
@@ -483,7 +533,7 @@ export default function ConstrutorasObras({ navegar }) {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => navegarPara("obras")}
+                                onClick={() => editarObra(obra)}
                                 className="rounded-xl border bg-white px-4 py-2 text-sm text-blue-600 shadow-sm"
                               >
                                 Editar

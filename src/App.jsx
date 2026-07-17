@@ -1,14 +1,11 @@
 import { useState } from "react";
 import Dashboard from "./components/Dashboard";
 import ConstrutorasObras from "./components/ConstrutorasObras";
-import Construtoras from "./components/Construtoras";
-import Obras from "./components/Obras";
 import Atividades from "./components/Atividades";
 import Agenda from "./components/Agenda.tsx";
 import RelatorioFinanceiro from "./components/RelatorioFinanceiro";
 import RelatorioServicos from "./components/RelatorioServicos";
 import RelatorioLocacao from "./components/RelatorioLocacao";
-import DetalhesObra from "./components/DetalhesObra";
 import BackupImportacao from "./components/BackupImportacao";
 import Configuracoes from "./components/Configuracoes";
 import TabelaComercial from "./components/TabelaComercial";
@@ -53,13 +50,10 @@ export default function App() {
     switch (selectedPage) {
       case "dashboard": return "Painel de Controle";
       case "construtorasobras": return "Construtoras e Obras";
-      case "construtoras": return "Construtoras";
-      case "obras": return "Obras";
       case "atividades": return "Atividades";
       case "relatoriofinanceiro": return "Relatório Financeiro";
       case "relatorioservicos": return "Relatório de Serviços";
       case "relatoriolocacao": return "Relatório de Locação";
-      case "detalhesobra": return "Detalhes da Obra";
       case "backup": return "Backup";
       case "configuracoes": return "Configurações";
       case "tabelacomercial": return "Tabela Comercial";
@@ -73,14 +67,11 @@ export default function App() {
     switch (selectedPage) {
       case "dashboard": return <Dashboard abrirAtividade={abrirAtividade} />;
       case "construtorasobras": return <ConstrutorasObras navegar={navegar} abrirAtividade={abrirAtividade} contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
-      case "construtoras": return <Construtoras contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} navegar={navegar} />;
-      case "obras": return <Obras contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} navegar={navegar} />;
       case "atividades": return <Atividades contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
       case "agenda": return <Agenda />;
       case "relatoriofinanceiro": return <RelatorioFinanceiro />;
       case "relatorioservicos": return <RelatorioServicos />;
       case "relatoriolocacao": return <RelatorioLocacao />;
-      case "detalhesobra": return <DetalhesObra abrirAtividade={abrirAtividade} contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
       case "backup": return <BackupImportacao />;
       case "configuracoes": return <Configuracoes />;
       case "tabelacomercial": return <TabelaComercial />;
@@ -116,8 +107,6 @@ export default function App() {
           {usuarioLogado.tipo === "admin" && (
             <>
               <button onClick={() => navegar("construtorasobras")} className="text-left hover:text-blue-600">Construtoras e Obras</button>
-              <button onClick={() => navegar("construtoras")} className="text-left hover:text-blue-600">🏗️ Construtoras</button>
-              <button onClick={() => navegar("obras")} className="text-left hover:text-blue-600">🧱 Obras</button>
             </>
           )}
           <button onClick={() => navegar("atividades")} className="text-left hover:text-blue-600">📋 Atividades</button>
@@ -138,7 +127,6 @@ export default function App() {
           )}
           {usuarioLogado.tipo === "admin" && (
             <>
-              <button onClick={() => navegar("detalhesobra")} className="text-left hover:text-blue-600">📌 Detalhes da Obra</button>
               <button onClick={() => { setSelectedPage("backup"); setMenuAberto(false); }} className="text-left hover:text-blue-600">💾 Backup</button>
               <button onClick={() => { setSelectedPage("usuarios"); setMenuAberto(false); }} className="text-left hover:text-blue-600">👥 Usuários</button>
               <button onClick={() => { setSelectedPage("tabelacomercial"); setMenuAberto(false); }} className="text-left hover:text-blue-600">Tabela Comercial</button>

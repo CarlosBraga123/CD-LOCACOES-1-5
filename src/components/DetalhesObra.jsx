@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { atividadePertenceObra } from "../utils/obras";
-import { atividadeEncerraLocacao, atividadeIniciaLocacao, obterMovimentosLocacao } from "../utils/locacaoFinanceira";
+import { ordenarObrasPorEquipamentosAtivos } from "../utils/ordenacao";
+import { obterResumoEquipamentosAtivos } from "../utils/equipamentosAtivos";
 
 export default function DetalhesObra({ abrirAtividade }) {
   const [obras, setObras] = useState([]);
@@ -21,117 +22,24 @@ export default function DetalhesObra({ abrirAtividade }) {
     return `${d}/${m}/${y}`;
   };
 
+  const calcularAtivosBalancinho = (obra) =>
+    obterResumoEquipamentosAtivos(obra, atividades).filter((item) =>
+      ["Balancinho Elétrico", "Balancinho Manual", "Kit Contrapeso"].includes(item.grupo)
+    );
+
+  const calcularAtivosMiniGrua = (obra) =>
+    obterResumoEquipamentosAtivos(obra, atividades).filter((item) =>
+      String(item.grupo || "").startsWith("Mini Grua")
+    );
+
   const calcularAtivos = (obra, equipamento) => {
-    return atividades
-      .filter((a) => atividadePertenceObra(a, obra) && a.equipamento === equipamento && a.dataLiberacao)
-      .flatMap((atividade) => obterMovimentosLocacao(atividade))
-      .filter((atividade) => !atividade.usaContrapeso)
-      .reduce((total, atividade) => {
-        const quantidade = Number(atividade.quantidade) || 1;
-        const iniciaLocacao =
-          atividade.iniciaLocacao === true ||
-          (atividade.iniciaLocacao === undefined && atividade.servico === "Instalação");
-        const encerraLocacao =
-          atividade.encerraLocacao === true ||
-          (atividade.encerraLocacao === undefined && atividade.servico === "Remoção");
+    const resumo =
+      equipamento === "Balancinho"
+        ? calcularAtivosBalancinho(obra).filter((item) => item.grupo !== "Kit Contrapeso")
+        : calcularAtivosMiniGrua(obra);
 
-        if (iniciaLocacao) return total + quantidade;
-        if (encerraLocacao) return total - quantidade;
-        return total;
-      }, 0);
+    return resumo.reduce((total, item) => total + Number(item.total || 0), 0);
   };
-
-  const formatarGrupoBalancinho = (atividade) => {
-    if (atividade.usaContrapeso) return "Kit Contrapeso";
-
-    let nome = "Balancinho Elétrico";
-
-    if (atividade.tipoBalancinho === "Manual") nome = "Balancinho Manual";
-
-    return atividade.usaContrapeso ? `${nome} CONTRAPESO` : nome;
-  };
-
-  const calcularAtivosBalancinho = (obra) => {
-    const totais = atividades
-      .filter((a) => atividadePertenceObra(a, obra) && a.equipamento === "Balancinho" && a.dataLiberacao)
-      .flatMap((atividade) => obterMovimentosLocacao(atividade))
-      .reduce((resultado, atividade) => {
-        const quantidade = Number(atividade.quantidade) || 1;
-        const iniciaLocacao =
-          atividade.iniciaLocacao === true ||
-          (atividade.iniciaLocacao === undefined && atividade.servico === "Instalação");
-        const encerraLocacao =
-          atividade.encerraLocacao === true ||
-          (atividade.encerraLocacao === undefined && atividade.servico === "Remoção");
-        const grupo = formatarGrupoBalancinho(atividade);
-
-        if (!resultado[grupo]) resultado[grupo] = 0;
-        if (iniciaLocacao) resultado[grupo] += quantidade;
-        if (encerraLocacao) resultado[grupo] -= quantidade;
-
-        return resultado;
-      }, {});
-
-    const ordem = [
-      "Balancinho Elétrico",
-      "Balancinho Manual",
-      "Kit Contrapeso",
-    ];
-
-    return Object.entries(totais)
-      .filter(([, total]) => total !== 0)
-      .sort(([grupoA], [grupoB]) => {
-        const posicaoA = ordem.indexOf(grupoA);
-        const posicaoB = ordem.indexOf(grupoB);
-
-        if (posicaoA === -1 && posicaoB === -1) return grupoA.localeCompare(grupoB);
-        if (posicaoA === -1) return 1;
-        if (posicaoB === -1) return -1;
-        return posicaoA - posicaoB;
-      })
-      .map(([grupo, total]) => ({ grupo, total }));
-  };
-
-  const formatarGrupoMiniGrua = (atividade) => {
-    return atividade.tipoMiniGrua ? `Mini Grua ${atividade.tipoMiniGrua}` : "Mini Grua";
-  };
-
-  const calcularAtivosMiniGrua = (obra) => {
-    const totais = atividades
-      .filter((a) => atividadePertenceObra(a, obra) && a.equipamento === "Mini Grua" && a.dataLiberacao)
-      .reduce((resultado, atividade) => {
-        const quantidade = Number(atividade.quantidade) || 1;
-        const iniciaLocacao =
-          atividade.iniciaLocacao === true ||
-          (atividade.iniciaLocacao === undefined && atividade.servico === "Instalação");
-        const encerraLocacao =
-          atividade.encerraLocacao === true ||
-          (atividade.encerraLocacao === undefined && atividade.servico === "Remoção");
-        const grupo = formatarGrupoMiniGrua(atividade);
-
-        if (!resultado[grupo]) resultado[grupo] = 0;
-        if (iniciaLocacao) resultado[grupo] += quantidade;
-        if (encerraLocacao) resultado[grupo] -= quantidade;
-
-        return resultado;
-      }, {});
-
-    const ordem = ["Mini Grua 500kg", "Mini Grua 1T", "Mini Grua"];
-
-    return Object.entries(totais)
-      .filter(([, total]) => total !== 0)
-      .sort(([grupoA], [grupoB]) => {
-        const posicaoA = ordem.indexOf(grupoA);
-        const posicaoB = ordem.indexOf(grupoB);
-
-        if (posicaoA === -1 && posicaoB === -1) return grupoA.localeCompare(grupoB);
-        if (posicaoA === -1) return 1;
-        if (posicaoB === -1) return -1;
-        return posicaoA - posicaoB;
-      })
-      .map(([grupo, total]) => ({ grupo, total }));
-  };
-
   const contarServicos = (obra, equipamento, servico) => {
     return atividades
       .filter((a) =>
@@ -163,14 +71,10 @@ export default function DetalhesObra({ abrirAtividade }) {
     return `Balancinho ${tipo}`;
   };
 
-  const obrasOrdenadas = [...obras].sort((a, b) => {
-    const ativosA =
-      calcularAtivos(a, "Balancinho") + calcularAtivos(a, "Mini Grua");
-    const ativosB =
-      calcularAtivos(b, "Balancinho") + calcularAtivos(b, "Mini Grua");
-
-    return ativosB - ativosA;
-  });
+  const obrasOrdenadas = ordenarObrasPorEquipamentosAtivos(
+    obras,
+    (obra) => calcularAtivos(obra, "Balancinho") + calcularAtivos(obra, "Mini Grua")
+  );
 
   const resumoBalancinhosSelecionados = obraSelecionada
     ? calcularAtivosBalancinho(obraSelecionada)

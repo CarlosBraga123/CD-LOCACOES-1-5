@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Dashboard from "./components/Dashboard";
+import ConstrutorasObras from "./components/ConstrutorasObras";
 import Construtoras from "./components/Construtoras";
 import Obras from "./components/Obras";
 import Atividades from "./components/Atividades";
@@ -29,6 +30,7 @@ export default function App() {
   const renderTitle = () => {
     switch (selectedPage) {
       case "dashboard": return "Painel de Controle";
+      case "construtorasobras": return "Construtoras e Obras";
       case "construtoras": return "Construtoras";
       case "obras": return "Obras";
       case "atividades": return "Atividades";
@@ -51,6 +53,7 @@ export default function App() {
         localStorage.setItem("atividadeParaLocalizar", String(id));
         setSelectedPage("atividades");
       }} />;
+      case "construtorasobras": return <ConstrutorasObras navegar={(pagina) => setSelectedPage(pagina)} />;
       case "construtoras": return <Construtoras />;
       case "obras": return <Obras />;
       case "atividades": return <Atividades />;
@@ -96,6 +99,7 @@ export default function App() {
           )}
           {usuarioLogado.tipo === "admin" && (
             <>
+              <button onClick={() => { setSelectedPage("construtorasobras"); setMenuAberto(false); }} className="text-left hover:text-blue-600">Construtoras e Obras</button>
               <button onClick={() => { setSelectedPage("construtoras"); setMenuAberto(false); }} className="text-left hover:text-blue-600">🏗️ Construtoras</button>
               <button onClick={() => { setSelectedPage("obras"); setMenuAberto(false); }} className="text-left hover:text-blue-600">🧱 Obras</button>
             </>

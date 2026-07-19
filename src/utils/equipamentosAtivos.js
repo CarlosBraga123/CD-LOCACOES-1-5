@@ -5,6 +5,10 @@ import {
   obterMovimentosLocacao,
 } from "./locacaoFinanceira";
 import { compararTextoPtBr } from "./ordenacao";
+import {
+  criarUnidadesDaEntrada,
+  localizarIndiceUnidade,
+} from "./unidadesEquipamentos";
 
 const ordemBalancinho = ["Balancinho Elétrico", "Balancinho Manual", "Kit Contrapeso"];
 const ordemMiniGrua = ["Mini Grua 500kg", "Mini Grua 1T", "Mini Grua"];
@@ -68,5 +72,160 @@ export const obterResumoEquipamentosAtivos = (obra, atividades = []) =>
 export const obterTotalEquipamentosAtivos = (obra, atividades = []) =>
   obterResumoEquipamentosAtivos(obra, atividades).reduce(
     (total, item) => total + Math.max(0, Number(item.total) || 0),
+    0
+  );
+
+const aplicarDeslocamentoNaUnidade = (unidade, item, atividade) => {
+  const alteracao = String(item.alteracaoContrapeso || "nenhuma")
+    .trim()
+    .toLowerCase();
+
+  return {
+    ...unidade,
+    tamanho: String(item.tamanhoNovo ?? unidade.tamanho ?? ""),
+    ancoragem: item.ancoragem || unidade.ancoragem || "",
+    usaContrapeso:
+      alteracao === "adicionar"
+        ? true
+        : alteracao === "remover"
+          ? false
+          : unidade.usaContrapeso,
+    ultimaAtividadeId: atividade?.id || unidade.ultimaAtividadeId,
+    ultimoDeslocamentoId: atividade?.id || unidade.ultimoDeslocamentoId,
+  };
+};
+
+export const obterUnidadesEquipamentosAtivos = (obra, atividades = []) => {
+  const unidades = [];
+
+  atividades
+    .filter(
+      (atividade) =>
+        atividadePertenceObra(atividade, obra) && atividade.dataLiberacao
+    )
+    .sort((a, b) => {
+      const porData = String(a.dataLiberacao).localeCompare(
+        String(b.dataLiberacao)
+      );
+      if (porData !== 0) return porData;
+      return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+    })
+    .forEach((atividade) => {
+      const iniciaLocacao = atividadeIniciaLocacao(atividade);
+      const encerraLocacao = atividadeEncerraLocacao(atividade);
+      const itens = Array.isArray(atividade.itensEquipamentos)
+        ? atividade.itensEquipamentos
+        : [];
+
+      if (iniciaLocacao) {
+        unidades.push(...criarUnidadesDaEntrada(atividade));
+        return;
+      }
+
+      if (itens.length > 0) {
+        itens.forEach((item) => {
+          const indice = localizarIndiceUnidade(unidades, item);
+          if (indice < 0) return;
+
+          if (encerraLocacao) {
+            unidades.splice(indice, 1);
+            return;
+          }
+
+          if (atividade.servico === "Deslocamento") {
+            unidades[indice] = aplicarDeslocamentoNaUnidade(
+              unidades[indice],
+              item,
+              atividade
+            );
+          }
+        });
+        return;
+      }
+
+      if (atividade.servico === "Deslocamento") {
+        let quantidadeRestante = Math.max(
+          1,
+          Number(atividade.quantidade) || 1
+        );
+
+        for (
+          let indice = unidades.length - 1;
+          indice >= 0 && quantidadeRestante > 0;
+          indice -= 1
+        ) {
+          if (unidades[indice].equipamento !== atividade.equipamento) continue;
+          unidades[indice] = aplicarDeslocamentoNaUnidade(
+            unidades[indice],
+            {
+              tamanhoNovo: atividade.tamanhoNovo || atividade.tamanho,
+              ancoragem: atividade.ancoragem,
+              alteracaoContrapeso: atividade.alteracaoContrapeso,
+            },
+            atividade
+          );
+          quantidadeRestante -= 1;
+        }
+      }
+
+      if (encerraLocacao) {
+        let quantidadeRestante = Math.max(
+          1,
+          Number(atividade.quantidade) || 1
+        );
+
+        for (
+          let indice = unidades.length - 1;
+          indice >= 0 && quantidadeRestante > 0;
+          indice -= 1
+        ) {
+          if (unidades[indice].equipamento !== atividade.equipamento) continue;
+          unidades.splice(indice, 1);
+          quantidadeRestante -= 1;
+        }
+      }
+    });
+
+  return unidades;
+};
+
+export const obterResumoUnidadesEquipamentosAtivos = (
+  obra,
+  atividades = []
+) => {
+  const totais = {};
+
+  obterUnidadesEquipamentosAtivos(obra, atividades).forEach((unidade) => {
+    let grupo = unidade.equipamento || "Equipamento";
+
+    if (unidade.equipamento === "Balancinho") {
+      grupo =
+        unidade.tipoBalancinho === "Manual"
+          ? "Balancinho Manual"
+          : "Balancinho Elétrico";
+    } else if (unidade.equipamento === "Mini Grua") {
+      grupo = unidade.tipoMiniGrua
+        ? `Mini Grua ${unidade.tipoMiniGrua}`
+        : "Mini Grua";
+    }
+
+    totais[grupo] = (totais[grupo] || 0) + 1;
+
+    if (unidade.equipamento === "Balancinho" && unidade.usaContrapeso) {
+      totais["Kit Contrapeso"] = (totais["Kit Contrapeso"] || 0) + 1;
+    }
+  });
+
+  return ordenarResumo(
+    Object.entries(totais).map(([grupo, total]) => ({ grupo, total }))
+  );
+};
+
+export const obterTotalUnidadesEquipamentosAtivos = (
+  obra,
+  atividades = []
+) =>
+  obterResumoUnidadesEquipamentosAtivos(obra, atividades).reduce(
+    (total, item) => total + item.total,
     0
   );

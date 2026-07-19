@@ -32,16 +32,16 @@ import {
 } from "../utils/ordenacao";
 import {
   obterResumoEquipamentosAtivos,
+  obterResumoUnidadesEquipamentosAtivos,
   obterTotalEquipamentosAtivos,
+  obterTotalUnidadesEquipamentosAtivos,
+  obterUnidadesEquipamentosAtivos,
 } from "../utils/equipamentosAtivos";
 import {
-  calcularTotalAtivosPorEquipamento,
   contarServicosObra,
   formatarDataDetalhesObra,
   formatarEquipamentoDetalhesObra,
   obterHistoricoAtividadesObra,
-  obterResumoBalancinhosAtivos,
-  obterResumoMiniGruasAtivas,
   obterServicosExecutadosObra,
 } from "../utils/detalhesObra";
 
@@ -323,6 +323,43 @@ export default function ConstrutorasObras({
           obterChaveObraCadastro(obra) === obraDetalhesSelecionadaChave
       ) || null,
     [obraDetalhesSelecionadaChave, obras]
+  );
+
+  const obrasAtivasDetalhes = useMemo(() => {
+    const obrasComTotais = obras
+      .map((obra) => {
+        const resumo = obterResumoUnidadesEquipamentosAtivos(obra, atividades);
+        const totalAtivos = obterTotalUnidadesEquipamentosAtivos(
+          obra,
+          atividades
+        );
+        const construtora = obterConstrutoraDaObra(obra, construtoras);
+
+        return {
+          obra,
+          construtora,
+          resumo,
+          totalAtivos,
+          categorias: montarCategoriasAtivas(resumo),
+        };
+      })
+      .filter((item) => item.totalAtivos > 0);
+
+    return obrasComTotais.sort((a, b) => {
+      if (a.totalAtivos !== b.totalAtivos) return b.totalAtivos - a.totalAtivos;
+      return compararTextoPtBr(a.obra?.nome, b.obra?.nome);
+    });
+  }, [atividades, construtoras, obras]);
+
+  const unidadesAtivasObraDetalhes = useMemo(
+    () =>
+      obraDetalhesSelecionada
+        ? obterUnidadesEquipamentosAtivos(
+            obraDetalhesSelecionada,
+            atividades
+          )
+        : [],
+    [atividades, obraDetalhesSelecionada]
   );
 
   const alternarConstrutora = (id) => {
@@ -1692,14 +1729,22 @@ export default function ConstrutorasObras({
       ? obterConstrutoraDaObra(obra, construtoras)
       : null;
     const resumoAtivos = obra
-      ? obterResumoEquipamentosAtivos(obra, atividades)
+      ? obterResumoUnidadesEquipamentosAtivos(obra, atividades)
       : [];
-    const resumoBalancinhos = obra
-      ? obterResumoBalancinhosAtivos(obra, atividades)
-      : [];
-    const resumoMiniGruas = obra
-      ? obterResumoMiniGruasAtivas(obra, atividades)
-      : [];
+    const resumoBalancinhos = resumoAtivos.filter(
+      (item) =>
+        item.grupo.startsWith("Balancinho ") ||
+        item.grupo === "Kit Contrapeso"
+    );
+    const resumoMiniGruas = resumoAtivos.filter((item) =>
+      item.grupo.startsWith("Mini Grua")
+    );
+    const totalBalancinhos = unidadesAtivasObraDetalhes.filter(
+      (unidade) => unidade.equipamento === "Balancinho"
+    ).length;
+    const totalMiniGruas = unidadesAtivasObraDetalhes.filter(
+      (unidade) => unidade.equipamento === "Mini Grua"
+    ).length;
     const servicosExecutados = obra
       ? obterServicosExecutadosObra(obra, atividades)
       : [];
@@ -1775,14 +1820,14 @@ export default function ConstrutorasObras({
         </div>
 
         {!obra ? (
-          obrasAtivas.length === 0 ? (
+          obrasAtivasDetalhes.length === 0 ? (
             <p className="rounded-xl border bg-gray-50 p-4 text-sm text-gray-500">
               Nenhuma obra com equipamento ativo. Use o seletor acima para
               consultar qualquer obra cadastrada.
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {obrasAtivas.map(
+              {obrasAtivasDetalhes.map(
                 ({ obra: obraAtiva, construtora: construtoraAtiva, totalAtivos, categorias }) => {
                   const categoriasVisiveis = categorias.filter(
                     (categoria) => categoria.valor > 0
@@ -1964,18 +2009,96 @@ export default function ConstrutorasObras({
               )}
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div className="rounded border p-3 text-sm">
-                  <p><strong>Balancinhos ativos:</strong> {calcularTotalAtivosPorEquipamento(obra, "Balancinho", atividades)}</p>
+                  <p><strong>Balancinhos ativos:</strong> {totalBalancinhos}</p>
                   {resumoBalancinhos.map((item) => (
                     <p key={item.grupo}>{item.grupo}: {item.total}</p>
                   ))}
                 </div>
                 <div className="rounded border p-3 text-sm">
-                  <p><strong>Mini Gruas ativas:</strong> {calcularTotalAtivosPorEquipamento(obra, "Mini Grua", atividades)}</p>
+                  <p><strong>Mini Gruas ativas:</strong> {totalMiniGruas}</p>
                   {resumoMiniGruas.map((item) => (
                     <p key={item.grupo}>{item.grupo}: {item.total}</p>
                   ))}
                 </div>
               </div>
+              {unidadesAtivasObraDetalhes.length > 0 && (
+                <div className="mt-5">
+                  <h4 className="font-medium">Unidades em locação</h4>
+                  <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {unidadesAtivasObraDetalhes.map((unidade) => {
+                      const identificacao = `Unidade ${
+                        unidade.indiceUnidade || 1
+                      }`;
+
+                      return (
+                        <article
+                          key={unidade.idUnidade}
+                          className="rounded-lg border bg-gray-50 p-3"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <p className="font-medium">
+                                {formatarEquipamentoDetalhesObra(unidade) ||
+                                  "Equipamento"}
+                              </p>
+                              {(!unidade.numeroPatrimonio ||
+                                unidade.unidadeLegada) && (
+                                <p className="text-sm text-gray-500">
+                                  {identificacao}
+                                  {unidade.unidadeLegada
+                                    ? " (registro legado)"
+                                    : ""}
+                                </p>
+                              )}
+                            </div>
+                            {unidade.tamanho && (
+                              <span className="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">
+                                Tamanho: {unidade.tamanho}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="mt-2 grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
+                            <p>
+                              <strong>Patrimônio:</strong>{" "}
+                              {unidade.numeroPatrimonio || "Não informado"}
+                            </p>
+                            <p>
+                              <strong>Ancoragem:</strong>{" "}
+                              {unidade.ancoragem || "-"}
+                            </p>
+                            {unidade.equipamento === "Balancinho" && (
+                              <p>
+                                <strong>Kit Contrapeso:</strong>{" "}
+                                {unidade.usaContrapeso ? "Sim" : "Não"}
+                              </p>
+                            )}
+                            <p>
+                              <strong>Em locação desde:</strong>{" "}
+                              {formatarDataDetalhesObra(unidade.dataEntrada) ||
+                                "-"}
+                            </p>
+                          </div>
+
+                          {unidade.atividadeOrigemId && abrirAtividade && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                abrirAtividadeRecente({
+                                  id: unidade.atividadeOrigemId,
+                                })
+                              }
+                              className="mt-3 rounded border bg-white px-3 py-1.5 text-sm text-blue-600"
+                            >
+                              Abrir atividade de origem
+                            </button>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {patrimonios.length > 0 && (
                 <p className="mt-3 text-sm">
                   <strong>Patrimonios registrados:</strong> {patrimonios.join(", ")}

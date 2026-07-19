@@ -41,6 +41,93 @@ export default function RelatorioServicos() {
     return "Balancinho Elétrico";
   };
 
+  const obterItensEquipamentos = (atividade) =>
+    Array.isArray(atividade.itensEquipamentos)
+      ? atividade.itensEquipamentos
+      : [];
+
+  const obterQuantidadeAtividade = (atividade) => {
+    const itens = obterItensEquipamentos(atividade);
+    if (itens.length > 0) return itens.length;
+
+    const quantidade = Number(atividade.quantidade);
+    return quantidade > 0 ? quantidade : 1;
+  };
+
+  const formatarTamanho = (valor) => {
+    const tamanho = String(valor ?? "").trim();
+    return tamanho ? `${tamanho} m` : "";
+  };
+
+  const formatarItemEquipamento = (item, atividade) => {
+    const dados = { ...atividade, ...item };
+    const partes = [];
+
+    if (dados.equipamento === "Balancinho") {
+      partes.push(formatarEquipamento(dados));
+
+      const tamanhoAnterior = formatarTamanho(
+        item.tamanhoAnterior || item.tamanho
+      );
+      const tamanhoNovo = formatarTamanho(item.tamanhoNovo);
+      if (
+        atividade.servico === "Deslocamento" &&
+        tamanhoAnterior &&
+        tamanhoNovo
+      ) {
+        partes.push(`${tamanhoAnterior} → ${tamanhoNovo}`);
+      } else {
+        const tamanho = formatarTamanho(item.tamanho || atividade.tamanho);
+        if (tamanho) partes.push(tamanho);
+      }
+
+      if (item.ancoragem || atividade.ancoragem) {
+        partes.push(`Ancoragem: ${item.ancoragem || atividade.ancoragem}`);
+      }
+
+      const alteracao = String(
+        item.alteracaoContrapeso || "nenhuma"
+      ).toLowerCase();
+      if (alteracao === "adicionar") {
+        partes.push("Adicionar Kit Contrapeso");
+      } else if (alteracao === "remover") {
+        partes.push("Remover Kit Contrapeso");
+      } else if (item.usaContrapeso === true) {
+        partes.push("Com Kit Contrapeso");
+      }
+    } else {
+      partes.push(formatarEquipamento(dados) || "Equipamento");
+    }
+
+    partes.push(
+      item.numeroPatrimonio
+        ? `Patrimônio ${item.numeroPatrimonio}`
+        : "Sem patrimônio"
+    );
+
+    return partes.filter(Boolean).join(" — ");
+  };
+
+  const obterDescricoesEquipamentos = (atividade) =>
+    obterItensEquipamentos(atividade).map((item) =>
+      formatarItemEquipamento(item, atividade)
+    );
+
+  const renderItensEquipamentos = (atividade) => {
+    const descricoes = obterDescricoesEquipamentos(atividade);
+    if (descricoes.length === 0) return null;
+
+    return (
+      <ul className="mt-1 space-y-0.5 pl-4 text-xs text-gray-600">
+        {descricoes.map((descricao, indice) => (
+          <li key={`${atividade.id}-equipamento-${indice}`} className="list-disc">
+            {descricao}
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
   const obterChaveObraCadastrada = (obra) =>
     obterChaveObra({ obraId: obra.id, obra: obra.nome, construtora: obra.construtora });
 
@@ -128,13 +215,21 @@ export default function RelatorioServicos() {
     Object.values(obrasPorMes).forEach((dados) => {
       wsData.push([]);
       wsData.push([dados.rotulo]);
-      wsData.push(["Data", "Equipamento", "Serviço"]);
+      wsData.push([
+        "Data",
+        "Equipamento",
+        "Quantidade",
+        "Serviço",
+        "Descrição dos equipamentos",
+      ]);
       ["Balancinho", "Mini Grua"].forEach((eq) => {
         dados[eq].forEach((a) => {
           wsData.push([
             formatarData(a.dataLiberacao),
             `${formatarEquipamento(a)}${a.usaContrapeso ? " - CONTRAPESO" : ""}`,
-            a.servico
+            obterQuantidadeAtividade(a),
+            a.servico,
+            obterDescricoesEquipamentos(a).join(" | "),
           ]);
         });
       });
@@ -210,11 +305,13 @@ export default function RelatorioServicos() {
                           {dados.Balancinho.sort((a, b) => new Date(a.dataLiberacao) - new Date(b.dataLiberacao)).map((a) => (
                             <li key={a.id}>
                               {a.servico.toUpperCase()} — Data {formatarData(a.dataLiberacao)} ({formatarEquipamento(a)})
+                              {" — "}{obterQuantidadeAtividade(a)} equipamento(s)
                               {a.usaContrapeso && (
                                 <span className="ml-2 inline-block rounded bg-yellow-200 px-2 py-1 text-xs font-bold text-yellow-900">
                                   CONTRAPESO
                                 </span>
                               )}
+                              {renderItensEquipamentos(a)}
                             </li>
                           ))}
                         </ul>
@@ -226,7 +323,11 @@ export default function RelatorioServicos() {
                         <strong>Mini Grua:</strong>
                         <ul className="list-disc pl-5 text-sm">
                           {dados["Mini Grua"].sort((a, b) => new Date(a.dataLiberacao) - new Date(b.dataLiberacao)).map((a) => (
-                            <li key={a.id}>{a.servico.toUpperCase()} — Data {formatarData(a.dataLiberacao)}</li>
+                            <li key={a.id}>
+                              {a.servico.toUpperCase()} — Data {formatarData(a.dataLiberacao)}
+                              {" — "}{obterQuantidadeAtividade(a)} equipamento(s)
+                              {renderItensEquipamentos(a)}
+                            </li>
                           ))}
                         </ul>
                       </div>
@@ -291,6 +392,8 @@ export default function RelatorioServicos() {
                     </span>
                   )}
                   {item.equipamento === "Balancinho" && item.tamanho ? ` [${item.tamanho}m]` : ""}<br />
+                  Quantidade: {obterQuantidadeAtividade(item)}
+                  {renderItensEquipamentos(item)}
                   {item.construtora} / {item.obra} <br />
                   Liberado: {formatarData(item.dataLiberacao)}
                 </li>

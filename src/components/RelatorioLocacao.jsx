@@ -4,6 +4,7 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import {
   calcularPeriodosLocacao,
+  calcularPeriodosLocacaoIndividuais,
   obterMovimentosLocacao,
 } from "../utils/locacaoFinanceira";
 import { normalizarTexto, obterChaveObra, obterObraDaAtividade } from "../utils/obras";
@@ -42,7 +43,11 @@ const criarResumoCategoriasLocacao = (linhas, { ocultarZerados = false } = {}) =
   const itens = categoriasResumoLocacao.map((categoria) => ({
     ...categoria,
     valor: linhas
-      .filter((linha) => categoria.corresponde(linha.equipamento || ""))
+      .filter((linha) =>
+        categoria.corresponde(
+          linha.equipamentoCategoria || linha.equipamento || ""
+        )
+      )
       .reduce((total, linha) => total + Number(linha.valorProporcionalMes || 0), 0),
   }));
   const itensVisiveis = ocultarZerados ? itens.filter((item) => item.valor > 0) : itens;
@@ -249,6 +254,24 @@ export default function RelatorioLocacao() {
       };
     };
 
+    const {
+      periodos: periodosIndividuais,
+      registrosZerados: registrosIndividuaisZerados,
+      atividadesIndividualizadas,
+    } = calcularPeriodosLocacaoIndividuais({
+      atividadesBase: atividades,
+      inicioMes,
+      fimMes,
+      diasNoMes,
+      obras,
+      formatarEquipamento,
+      obterValorMensalLocacao,
+    });
+    const atividadesLegadas = atividades.filter(
+      (atividade) =>
+        !atividadesIndividualizadas.has(String(atividade.id))
+    );
+
     // Regras operacionais atuais, com fallback para registros antigos.
     const atividadeIniciaLocacao = (atividade) => {
       if (atividade.iniciaLocacao !== undefined) return atividade.iniciaLocacao === true;
@@ -261,7 +284,7 @@ export default function RelatorioLocacao() {
     };
 
     // Saldos permanecem pelo calculo historico; o proporcional e substituido abaixo.
-    atividades
+    atividadesLegadas
       .filter((atividade) => atividade.dataLiberacao)
       .sort((a, b) => new Date(a.dataLiberacao) - new Date(b.dataLiberacao))
       .flatMap((atividade) => obterMovimentosLocacao(atividade))
@@ -313,7 +336,7 @@ export default function RelatorioLocacao() {
       });
 
     const periodosLocacao = calcularPeriodosLocacao({
-      atividadesBase: atividades,
+      atividadesBase: atividadesLegadas,
       inicioMes,
       fimMes,
       diasNoMes,
@@ -329,6 +352,63 @@ export default function RelatorioLocacao() {
       ].join("||");
       const linha = mapa.get(chaveLinha);
       if (linha) linha.periodosLocacao.push(periodo);
+    });
+
+    periodosIndividuais.forEach((periodo) => {
+      const chave = `unidade||${periodo.idUnidade}`;
+      const entradaNoMes =
+        periodo.dataEntradaReal >= inicioMes &&
+        periodo.dataEntradaReal <= fimMes;
+      const saidaNoMes =
+        Boolean(periodo.dataSaidaReal) &&
+        periodo.dataSaidaReal >= inicioMes &&
+        periodo.dataSaidaReal <= fimMes;
+      const ativaAntesDoMes =
+        periodo.dataEntradaReal < inicioMes &&
+        (!periodo.dataSaidaReal || periodo.dataSaidaReal >= inicioMes);
+      const ativaAoFimDoMes =
+        periodo.dataEntradaReal <= fimMes &&
+        (!periodo.dataSaidaReal || periodo.dataSaidaReal > fimMes);
+
+      mapa.set(chave, {
+        chaveObra: periodo.chaveObra,
+        idUnidade: periodo.idUnidade,
+        construtora: periodo.construtora,
+        obra: periodo.obra,
+        equipamento: periodo.equipamento,
+        equipamentoCategoria: periodo.equipamentoCategoria,
+        usaContrapeso: periodo.usaContrapeso,
+        saldoAnterior: ativaAntesDoMes ? 1 : 0,
+        entradasMes: entradaNoMes ? 1 : 0,
+        saidasMes: saidaNoMes ? 1 : 0,
+        saldoFinal: ativaAoFimDoMes ? 1 : 0,
+        valorMensal: periodo.valorMensal,
+        valorProporcionalMes: periodo.valorProporcional,
+        valorMensalAtivo: ativaAoFimDoMes ? periodo.valorMensal : 0,
+        origensValor: new Set([periodo.origemValor]),
+        periodosLocacao: [periodo],
+      });
+    });
+
+    registrosIndividuaisZerados.forEach((registro) => {
+      mapa.set(`unidade||${registro.idUnidade}`, {
+        chaveObra: registro.chaveObra,
+        idUnidade: registro.idUnidade,
+        construtora: registro.construtora,
+        obra: registro.obra,
+        equipamento: registro.equipamento,
+        equipamentoCategoria: registro.equipamentoCategoria,
+        usaContrapeso: registro.usaContrapeso,
+        saldoAnterior: 0,
+        entradasMes: 0,
+        saidasMes: 0,
+        saldoFinal: 0,
+        valorMensal: 0,
+        valorProporcionalMes: 0,
+        valorMensalAtivo: 0,
+        origensValor: new Set([registro.origemValor]),
+        periodosLocacao: [],
+      });
     });
 
     return Array.from(mapa.values()).map((linha) => {

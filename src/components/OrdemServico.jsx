@@ -48,6 +48,111 @@ const normalizarAlteracaoContrapesoOS = (atividade) => {
   return ["adicionar", "remover"].includes(valor) ? valor : "nenhuma";
 };
 
+const obterItensEquipamentosOS = (atividade) =>
+  Array.isArray(atividade?.itensEquipamentos)
+    ? atividade.itensEquipamentos
+    : [];
+
+const obterQuantidadeOS = (atividade) => {
+  const itens = obterItensEquipamentosOS(atividade);
+  if (itens.length > 0) return itens.length;
+  return Number(atividade?.quantidade) || 1;
+};
+
+const formatarValorOS = (valor, fallback = "Não informado") => {
+  const texto = String(valor ?? "").trim();
+  return texto || fallback;
+};
+
+const formatarTipoItemOS = (item, atividade) =>
+  formatarEquipamentoOrdemServico({ ...atividade, ...item }) ||
+  "Equipamento";
+
+const montarDetalhesItemOS = (item, atividade) => {
+  const detalhes = [];
+  const patrimonio = formatarValorOS(item.numeroPatrimonio);
+  const servico = normalizarServicoOS(atividade?.servico);
+  const equipamento = item.equipamento || atividade.equipamento;
+
+  detalhes.push(`Patrimônio: ${patrimonio}`);
+
+  if (equipamento === "Balancinho") {
+    if (servico === "deslocamento") {
+      detalhes.push(
+        `Tamanho: ${formatarTamanhoDeslocamento(
+          item.tamanhoAnterior || item.tamanho
+        )} → ${formatarTamanhoDeslocamento(item.tamanhoNovo || item.tamanho)}`
+      );
+
+      const ancoragemAnterior = formatarValorOS(
+        item.ancoragemAnterior || item.ancoragem,
+        "-"
+      );
+      const ancoragemNova = formatarValorOS(item.ancoragem, "-");
+      detalhes.push(`Ancoragem: ${ancoragemAnterior} → ${ancoragemNova}`);
+    } else {
+      detalhes.push(
+        `Tamanho: ${formatarTamanhoDeslocamento(
+          item.tamanho || atividade.tamanho
+        )}`
+      );
+      detalhes.push(
+        `Ancoragem: ${formatarValorOS(
+          item.ancoragem || atividade.ancoragem
+        )}`
+      );
+    }
+
+    const alteracao = normalizarAlteracaoContrapesoOS(item);
+    if (servico === "deslocamento") {
+      detalhes.push(
+        `Kit Contrapeso: ${
+          alteracao === "adicionar"
+            ? "Adicionar"
+            : alteracao === "remover"
+              ? "Remover"
+              : "Sem alteração"
+        }`
+      );
+    } else {
+      detalhes.push(
+        `Kit Contrapeso: ${item.usaContrapeso ? "Sim" : "Não"}`
+      );
+    }
+  }
+
+  return detalhes;
+};
+
+const ListaEquipamentosOS = ({ atividade, compacto }) => {
+  const itens = obterItensEquipamentosOS(atividade);
+  if (itens.length === 0) return null;
+
+  return (
+    <BlocoOS titulo="Equipamentos" compacto={compacto}>
+      <ol
+        className={`grid grid-cols-1 ${
+          compacto ? "gap-0.5 text-[6.8px]" : "gap-1.5 text-[9px]"
+        }`}
+      >
+        {itens.map((item, indice) => (
+          <li
+            key={`${atividade.id || "atividade"}-equipamento-${indice}`}
+            className="break-inside-avoid leading-[1.15]"
+          >
+            <strong>
+              {indice + 1}. {formatarTipoItemOS(item, atividade)}
+            </strong>
+            <span className="ml-1">
+              {montarDetalhesItemOS(item, atividade).join(" | ")}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </BlocoOS>
+  );
+};
+
 const icones = {
   Construtora: "▦",
   Obra: "▥",
@@ -368,6 +473,8 @@ const ViaOrdemServico = ({
         </div>
       </BlocoOS>
 
+      <ListaEquipamentosOS atividade={atividade} compacto={compacto} />
+
       <BlocoOS titulo="Tipo de serviço" compacto={compacto}>
         <div className={`grid ${compacto ? "grid-cols-4 gap-0.5" : "grid-cols-3 gap-x-8 gap-y-1"}`}>
           {servicosOS.map((servico) => (
@@ -449,6 +556,7 @@ export default function OrdemServico({ atividade, obras, construtoras, onClose }
   const equipamento = formatarEquipamentoOrdemServico(atividade);
   const payloadOffline = montarPayloadOrdemServico({ atividade, obra, construtora });
   const isDeslocamento = normalizarServicoOS(atividade?.servico) === "deslocamento";
+  const itensEquipamentos = obterItensEquipamentosOS(atividade);
   const numerosPatrimonioValidos = obterNumerosPatrimonioValidos(atividade);
   const alteracaoContrapeso = normalizarAlteracaoContrapesoOS(atividade);
 
@@ -479,7 +587,7 @@ export default function OrdemServico({ atividade, obras, construtoras, onClose }
 
   const dadosEquipamento = [
     ["Equipamento", equipamento],
-    ["Quantidade", atividade?.quantidade || 1],
+    ["Quantidade", obterQuantidadeOS(atividade)],
     ...(isDeslocamento
       ? [
           ["Tamanho anterior", formatarTamanhoDeslocamento(atividade?.tamanhoAnterior)],
@@ -498,7 +606,7 @@ export default function OrdemServico({ atividade, obras, construtoras, onClose }
     ["Ancoragem", atividade?.ancoragem],
     ["Capacidade", atividade?.tipoMiniGrua],
     ["Tipo específico", atividade?.tipoBalancinho || atividade?.tipoMiniGrua],
-    ...(numerosPatrimonioValidos.length > 0
+    ...(itensEquipamentos.length === 0 && numerosPatrimonioValidos.length > 0
       ? [
           [
             numerosPatrimonioValidos.length === 1 ? "Patrimônio" : "Patrimônios",

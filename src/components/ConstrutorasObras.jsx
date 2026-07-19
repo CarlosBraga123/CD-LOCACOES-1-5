@@ -44,6 +44,7 @@ import {
   obterHistoricoAtividadesObra,
   obterServicosExecutadosObra,
 } from "../utils/detalhesObra";
+import AtividadeResumoCard from "./AtividadeResumoCard";
 
 const texto = (valor) => String(valor || "").trim();
 
@@ -1117,23 +1118,18 @@ export default function ConstrutorasObras({
             <p className="text-gray-500">Nenhuma atividade encontrada.</p>
           ) : (
             recentes.map((atividade, indice) => (
-              <button
-                type="button"
+              <AtividadeResumoCard
                 key={atividade.id || `${atividade.dataLiberacao || atividade.dataAgendamento || "sem-data"}-${indice}`}
+                atividade={atividade}
                 onClick={() => abrirAtividadeRecente(atividade)}
                 disabled={!atividade.id}
-                className={`w-full rounded border bg-gray-50 p-2 text-left transition-colors ${
+                className={
                   atividade.id
                     ? "cursor-pointer hover:border-blue-300 hover:bg-blue-50 active:bg-blue-100"
                     : "cursor-default"
-                }`}
+                }
                 title={atividade.id ? "Abrir atividade" : ""}
-              >
-                <p className="font-medium">{atividade.servico || "Servico"} - {atividade.equipamento || "Equipamento"}</p>
-                <p className="text-gray-500">
-                  {atividade.dataLiberacao || atividade.dataAgendamento || "Sem data"}
-                </p>
-              </button>
+              />
             ))
           )}
         </div>

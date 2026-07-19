@@ -610,6 +610,11 @@ export const calcularPeriodosLocacaoIndividuais = ({
           String(atividadeBase.obra || "Sem obra").trim(),
         equipamento,
         equipamentoCategoria,
+        tipoBalancinho: registro.unidade.tipoBalancinho,
+        tipoMiniGrua: registro.unidade.tipoMiniGrua,
+        tamanho: registro.unidade.tamanho,
+        ancoragem: registro.unidade.ancoragem,
+        numeroPatrimonio: registro.unidade.numeroPatrimonio,
         usaContrapeso: registro.tipoMovimentoLocacao === "contrapeso",
         origemValor: registro.origemValor,
       };

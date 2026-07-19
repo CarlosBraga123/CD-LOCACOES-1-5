@@ -875,14 +875,6 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
           alert(`Informe o tipo do Equipamento ${numeroEquipamento}.`);
           return false;
         }
-        if (!String(item.tamanho || "").trim()) {
-          alert(`Informe o tamanho do Equipamento ${numeroEquipamento}.`);
-          return false;
-        }
-        if (!String(item.ancoragem || "").trim()) {
-          alert(`Informe a ancoragem do Equipamento ${numeroEquipamento}.`);
-          return false;
-        }
       }
 
       if (
@@ -930,15 +922,6 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
       }
 
       if (form.servico === "Deslocamento") {
-        if (!String(item.tamanhoNovo || "").trim()) {
-          alert(`Informe o novo tamanho do Equipamento ${numeroEquipamento}.`);
-          return false;
-        }
-        if (!String(item.ancoragem || "").trim()) {
-          alert(`Informe a nova ancoragem do Equipamento ${numeroEquipamento}.`);
-          return false;
-        }
-
         const alteracao = String(
           item.alteracaoContrapeso || "nenhuma"
         ).toLowerCase();

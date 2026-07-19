@@ -355,7 +355,6 @@ export default function RelatorioLocacao() {
     });
 
     periodosIndividuais.forEach((periodo) => {
-      const chave = `unidade||${periodo.idUnidade}`;
       const entradaNoMes =
         periodo.dataEntradaReal >= inicioMes &&
         periodo.dataEntradaReal <= fimMes;
@@ -369,46 +368,99 @@ export default function RelatorioLocacao() {
       const ativaAoFimDoMes =
         periodo.dataEntradaReal <= fimMes &&
         (!periodo.dataSaidaReal || periodo.dataSaidaReal > fimMes);
+      const equipamentoAgrupado =
+        periodo.equipamentoCategoria === "Kit Contrapeso"
+          ? "Kit Contrapeso"
+          : [
+              periodo.equipamentoCategoria,
+              periodo.tamanho ? `${periodo.tamanho} m` : "",
+            ]
+              .filter(Boolean)
+              .join(" — ");
+      const chave = [
+        "individual",
+        periodo.chaveObra,
+        periodo.equipamentoCategoria,
+        periodo.tamanho || "",
+        periodo.dataInicio,
+        periodo.dataFim,
+        Number(periodo.valorMensal || 0),
+        periodo.origemValor || "",
+        ativaAntesDoMes ? 1 : 0,
+        entradaNoMes ? 1 : 0,
+        saidaNoMes ? 1 : 0,
+        ativaAoFimDoMes ? 1 : 0,
+      ].join("||");
 
-      mapa.set(chave, {
-        chaveObra: periodo.chaveObra,
-        idUnidade: periodo.idUnidade,
-        construtora: periodo.construtora,
-        obra: periodo.obra,
-        equipamento: periodo.equipamento,
-        equipamentoCategoria: periodo.equipamentoCategoria,
-        usaContrapeso: periodo.usaContrapeso,
-        saldoAnterior: ativaAntesDoMes ? 1 : 0,
-        entradasMes: entradaNoMes ? 1 : 0,
-        saidasMes: saidaNoMes ? 1 : 0,
-        saldoFinal: ativaAoFimDoMes ? 1 : 0,
-        valorMensal: periodo.valorMensal,
-        valorProporcionalMes: periodo.valorProporcional,
-        valorMensalAtivo: ativaAoFimDoMes ? periodo.valorMensal : 0,
-        origensValor: new Set([periodo.origemValor]),
-        periodosLocacao: [periodo],
-      });
+      if (!mapa.has(chave)) {
+        mapa.set(chave, {
+          chaveObra: periodo.chaveObra,
+          construtora: periodo.construtora,
+          obra: periodo.obra,
+          equipamento: equipamentoAgrupado,
+          equipamentoCategoria: periodo.equipamentoCategoria,
+          usaContrapeso: periodo.usaContrapeso,
+          saldoAnterior: 0,
+          entradasMes: 0,
+          saidasMes: 0,
+          saldoFinal: 0,
+          valorMensal: 0,
+          valorProporcionalMes: 0,
+          valorMensalAtivo: 0,
+          origensValor: new Set(),
+          periodosLocacao: [],
+        });
+      }
+
+      const linha = mapa.get(chave);
+      linha.saldoAnterior += ativaAntesDoMes ? 1 : 0;
+      linha.entradasMes += entradaNoMes ? 1 : 0;
+      linha.saidasMes += saidaNoMes ? 1 : 0;
+      linha.saldoFinal += ativaAoFimDoMes ? 1 : 0;
+      linha.valorMensalAtivo += ativaAoFimDoMes
+        ? Number(periodo.valorMensal || 0)
+        : 0;
+      linha.origensValor.add(periodo.origemValor);
+      linha.periodosLocacao.push(periodo);
     });
 
     registrosIndividuaisZerados.forEach((registro) => {
-      mapa.set(`unidade||${registro.idUnidade}`, {
-        chaveObra: registro.chaveObra,
-        idUnidade: registro.idUnidade,
-        construtora: registro.construtora,
-        obra: registro.obra,
-        equipamento: registro.equipamento,
-        equipamentoCategoria: registro.equipamentoCategoria,
-        usaContrapeso: registro.usaContrapeso,
-        saldoAnterior: 0,
-        entradasMes: 0,
-        saidasMes: 0,
-        saldoFinal: 0,
-        valorMensal: 0,
-        valorProporcionalMes: 0,
-        valorMensalAtivo: 0,
-        origensValor: new Set([registro.origemValor]),
-        periodosLocacao: [],
-      });
+      const equipamentoAgrupado =
+        registro.equipamentoCategoria === "Kit Contrapeso"
+          ? "Kit Contrapeso"
+          : [
+              registro.equipamentoCategoria,
+              registro.tamanho ? `${registro.tamanho} m` : "",
+            ]
+              .filter(Boolean)
+              .join(" — ");
+      const chave = [
+        "individual-zerado",
+        registro.chaveObra,
+        registro.equipamentoCategoria,
+        registro.tamanho || "",
+        registro.origemValor || "",
+      ].join("||");
+
+      if (!mapa.has(chave)) {
+        mapa.set(chave, {
+          chaveObra: registro.chaveObra,
+          construtora: registro.construtora,
+          obra: registro.obra,
+          equipamento: equipamentoAgrupado,
+          equipamentoCategoria: registro.equipamentoCategoria,
+          usaContrapeso: registro.usaContrapeso,
+          saldoAnterior: 0,
+          entradasMes: 0,
+          saidasMes: 0,
+          saldoFinal: 0,
+          valorMensal: 0,
+          valorProporcionalMes: 0,
+          valorMensalAtivo: 0,
+          origensValor: new Set([registro.origemValor]),
+          periodosLocacao: [],
+        });
+      }
     });
 
     return Array.from(mapa.values()).map((linha) => {

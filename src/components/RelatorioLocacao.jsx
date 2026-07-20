@@ -119,6 +119,12 @@ export default function RelatorioLocacao() {
       return "Balancinho Elétrico";
     };
 
+    const formatarCategoriaGerencial = (categoria) => {
+      if (categoria === "Mini Grua 500kg") return "Mini Grua 500 kg";
+      if (categoria === "Mini Grua 1T") return "Mini Grua 1 T";
+      return categoria || "Sem equipamento";
+    };
+
     const obterLinha = (atividade) => {
       const obra = obterObraDaAtividade(atividade, obras);
       const equipamentoFormatado = formatarEquipamento(atividade);
@@ -135,6 +141,7 @@ export default function RelatorioLocacao() {
           construtora: obra?.construtora || atividade.construtora || "Sem construtora",
           obra: obra?.nome || String(atividade.obra || "Sem obra").trim(),
           equipamento: equipamentoFormatado,
+          equipamentoCategoria: equipamentoFormatado,
           usaContrapeso: !!atividade.usaContrapeso,
           saldoAnterior: 0,
           entradasMes: 0,
@@ -368,20 +375,11 @@ export default function RelatorioLocacao() {
       const ativaAoFimDoMes =
         periodo.dataEntradaReal <= fimMes &&
         (!periodo.dataSaidaReal || periodo.dataSaidaReal > fimMes);
-      const equipamentoAgrupado =
-        periodo.equipamentoCategoria === "Kit Contrapeso"
-          ? "Kit Contrapeso"
-          : [
-              periodo.equipamentoCategoria,
-              periodo.tamanho ? `${periodo.tamanho} m` : "",
-            ]
-              .filter(Boolean)
-              .join(" — ");
+      const equipamentoAgrupado = periodo.equipamentoCategoria;
       const chave = [
         "individual",
         periodo.chaveObra,
         periodo.equipamentoCategoria,
-        periodo.tamanho || "",
         periodo.dataInicio,
         periodo.dataFim,
         Number(periodo.valorMensal || 0),
@@ -425,20 +423,11 @@ export default function RelatorioLocacao() {
     });
 
     registrosIndividuaisZerados.forEach((registro) => {
-      const equipamentoAgrupado =
-        registro.equipamentoCategoria === "Kit Contrapeso"
-          ? "Kit Contrapeso"
-          : [
-              registro.equipamentoCategoria,
-              registro.tamanho ? `${registro.tamanho} m` : "",
-            ]
-              .filter(Boolean)
-              .join(" — ");
+      const equipamentoAgrupado = registro.equipamentoCategoria;
       const chave = [
         "individual-zerado",
         registro.chaveObra,
         registro.equipamentoCategoria,
-        registro.tamanho || "",
         registro.origemValor || "",
       ].join("||");
 
@@ -463,7 +452,7 @@ export default function RelatorioLocacao() {
       }
     });
 
-    return Array.from(mapa.values()).map((linha) => {
+    const linhasCalculadas = Array.from(mapa.values()).map((linha) => {
       const valorProporcionalPeriodos = linha.periodosLocacao.reduce(
         (total, periodo) => total + Number(periodo.valorProporcional || 0),
         0
@@ -482,7 +471,57 @@ export default function RelatorioLocacao() {
         valorProporcionalMes: Math.max(0, valorProporcionalPeriodos),
         origemValor: Array.from(new Set(origensValorPeriodos)).join(" / ") || "Sem valor",
       };
-    }).sort((a, b) => {
+    });
+    const mapaGerencial = linhasCalculadas.reduce((acc, linha) => {
+      const categoria = formatarCategoriaGerencial(
+        linha.equipamentoCategoria || linha.equipamento
+      );
+      const chave = `${linha.chaveObra}||${categoria}`;
+
+      if (!acc.has(chave)) {
+        acc.set(chave, {
+          chaveObra: linha.chaveObra,
+          construtora: linha.construtora,
+          obra: linha.obra,
+          equipamento: categoria,
+          equipamentoCategoria: categoria,
+          usaContrapeso: categoria === "Kit Contrapeso",
+          saldoAnterior: 0,
+          entradasMes: 0,
+          saidasMes: 0,
+          saldoFinal: 0,
+          valorMensal: 0,
+          valorProporcionalMes: 0,
+          valorMensalAtivo: 0,
+          origensValor: new Set(),
+          periodosLocacao: [],
+        });
+      }
+
+      const consolidada = acc.get(chave);
+      consolidada.saldoAnterior += Number(linha.saldoAnterior || 0);
+      consolidada.entradasMes += Number(linha.entradasMes || 0);
+      consolidada.saidasMes += Number(linha.saidasMes || 0);
+      consolidada.saldoFinal += Number(linha.saldoFinal || 0);
+      consolidada.valorMensal += Number(linha.valorMensal || 0);
+      consolidada.valorProporcionalMes += Number(
+        linha.valorProporcionalMes || 0
+      );
+      consolidada.valorMensalAtivo += Number(linha.valorMensalAtivo || 0);
+      linha.origemValor
+        .split(" / ")
+        .filter(Boolean)
+        .forEach((origem) => consolidada.origensValor.add(origem));
+      consolidada.periodosLocacao.push(...linha.periodosLocacao);
+
+      return acc;
+    }, new Map());
+
+    return Array.from(mapaGerencial.values()).map((linha) => ({
+      ...linha,
+      origemValor:
+        Array.from(linha.origensValor).join(" / ") || "Sem valor",
+    })).sort((a, b) => {
       const construtora = a.construtora.localeCompare(b.construtora);
       if (construtora !== 0) return construtora;
       const obra = a.obra.localeCompare(b.obra);

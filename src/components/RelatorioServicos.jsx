@@ -54,6 +54,33 @@ export default function RelatorioServicos() {
     return quantidade > 0 ? quantidade : 1;
   };
 
+  const obterItensEquipamentosParaApresentacao = (atividade) => {
+    const itens = obterItensEquipamentos(atividade);
+    const itensParaApresentacao = itens.length > 0
+      ? [...itens]
+      : (() => {
+          const quantidade = obterQuantidadeAtividade(atividade);
+          const patrimonios = Array.isArray(atividade.numerosPatrimonio)
+            ? atividade.numerosPatrimonio
+            : [];
+
+          return Array.from({ length: quantidade }, (_, indice) => ({
+            equipamento: atividade.equipamento,
+            tipoBalancinho: atividade.tipoBalancinho,
+            tipoMiniGrua: atividade.tipoMiniGrua,
+            tamanho: atividade.tamanho,
+            ancoragem: atividade.ancoragem,
+            usaContrapeso: atividade.usaContrapeso,
+            numeroPatrimonio:
+              patrimonios[indice] ??
+              (indice === 0 ? atividade.numeroPatrimonio : "") ??
+              "",
+          }));
+        })();
+
+    return itensParaApresentacao;
+  };
+
   const formatarTamanho = (valor) => {
     const tamanho = String(valor ?? "").trim();
     return tamanho ? `${tamanho} m` : "";
@@ -105,11 +132,11 @@ export default function RelatorioServicos() {
         : "Sem patrimônio"
     );
 
-    return partes.filter(Boolean).join(" — ");
+    return partes.filter(Boolean).join(" - ");
   };
 
   const obterDescricoesEquipamentos = (atividade) =>
-    obterItensEquipamentos(atividade).map((item) =>
+    obterItensEquipamentosParaApresentacao(atividade).map((item) =>
       formatarItemEquipamento(item, atividade)
     );
 
@@ -385,17 +412,17 @@ export default function RelatorioServicos() {
             <ul className="mt-4 space-y-2">
               {filtradas.map((item) => (
                 <li key={item.id} className="border p-3 rounded bg-white shadow-sm">
-                  <strong>{item.servico} - {formatarEquipamento(item)}</strong>
+                  <strong>{item.servico} • {formatarEquipamento(item)}</strong>
                   {item.usaContrapeso && (
                     <span className="ml-2 inline-block rounded bg-yellow-200 px-2 py-1 text-xs font-bold text-yellow-900">
                       CONTRAPESO
                     </span>
                   )}
-                  {item.equipamento === "Balancinho" && item.tamanho ? ` [${item.tamanho}m]` : ""}<br />
-                  Quantidade: {obterQuantidadeAtividade(item)}
+                  <div className="mt-1">Quantidade: {obterQuantidadeAtividade(item)}</div>
                   {renderItensEquipamentos(item)}
-                  {item.construtora} / {item.obra} <br />
-                  Liberado: {formatarData(item.dataLiberacao)}
+                  <div className="mt-2">{item.construtora} / {item.obra}</div>
+                  <div className="mt-2">Liberado</div>
+                  <div>{formatarData(item.dataLiberacao)}</div>
                 </li>
               ))}
             </ul>

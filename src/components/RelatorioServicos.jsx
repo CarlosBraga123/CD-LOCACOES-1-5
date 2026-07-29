@@ -3,6 +3,10 @@ import * as XLSX from "xlsx";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { atividadePertenceObra, normalizarTexto, obterChaveObra, obterObraDaAtividade } from "../utils/obras";
+import {
+  aplicarPatrimoniosAdministrativos,
+  obterRegistrosPatrimonio,
+} from "../utils/patrimoniosEquipamentos";
 
 export default function RelatorioServicos() {
   const [atividades, setAtividades] = useState([]);
@@ -78,7 +82,10 @@ export default function RelatorioServicos() {
           }));
         })();
 
-    return itensParaApresentacao;
+    return aplicarPatrimoniosAdministrativos(
+      itensParaApresentacao,
+      obterRegistrosPatrimonio()
+    );
   };
 
   const formatarTamanho = (valor) => {

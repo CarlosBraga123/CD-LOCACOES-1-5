@@ -9,6 +9,14 @@ import {
   criarUnidadesDaEntrada,
   localizarIndiceUnidade,
 } from "./unidadesEquipamentos";
+import {
+  aplicarPatrimoniosAdministrativos,
+  obterRegistrosPatrimonio,
+} from "./patrimoniosEquipamentos";
+import {
+  obterEquipamentosPatrimonio,
+  obterIdEquipamentoDoItem,
+} from "./equipamentosPatrimonio";
 
 const ordemBalancinho = ["Balancinho Elétrico", "Balancinho Manual", "Kit Contrapeso"];
 const ordemMiniGrua = ["Mini Grua 500kg", "Mini Grua 1T", "Mini Grua"];
@@ -95,7 +103,12 @@ const aplicarDeslocamentoNaUnidade = (unidade, item, atividade) => {
   };
 };
 
-export const obterUnidadesEquipamentosAtivos = (obra, atividades = []) => {
+export const obterUnidadesEquipamentosAtivos = (
+  obra,
+  atividades = [],
+  registrosPatrimonio = obterRegistrosPatrimonio(),
+  equipamentosMestres = obterEquipamentosPatrimonio()
+) => {
   const unidades = [];
 
   atividades
@@ -186,7 +199,12 @@ export const obterUnidadesEquipamentosAtivos = (obra, atividades = []) => {
       }
     });
 
-  return unidades;
+  return aplicarPatrimoniosAdministrativos(unidades, registrosPatrimonio).map(
+    (item) => ({
+      ...item,
+      idEquipamento: obterIdEquipamentoDoItem(item, equipamentosMestres),
+    })
+  );
 };
 
 export const obterResumoUnidadesEquipamentosAtivos = (

@@ -12,6 +12,7 @@ import TabelaComercial from "./components/TabelaComercial";
 import Usuarios from "./components/Usuarios";
 import Login from "./components/Login";
 import ListaDeTarefas from "./components/ListaDeTarefas";
+import ControlePatrimonios from "./components/ControlePatrimonios";
 
 // 👇 Simula um login automático como admin
 const usuarioAdminSimulado = {
@@ -50,6 +51,7 @@ export default function App() {
     switch (selectedPage) {
       case "dashboard": return "Painel de Controle";
       case "construtorasobras": return "Construtoras e Obras";
+      case "controlepatrimonios": return "Controle de Patrimônios";
       case "atividades": return "Atividades";
       case "relatoriofinanceiro": return "Relatório Financeiro";
       case "relatorioservicos": return "Relatório de Serviços";
@@ -67,6 +69,7 @@ export default function App() {
     switch (selectedPage) {
       case "dashboard": return <Dashboard abrirAtividade={abrirAtividade} />;
       case "construtorasobras": return <ConstrutorasObras navegar={navegar} abrirAtividade={abrirAtividade} contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
+      case "controlepatrimonios": return <ControlePatrimonios />;
       case "atividades": return <Atividades contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
       case "agenda": return <Agenda />;
       case "relatoriofinanceiro": return <RelatorioFinanceiro />;
@@ -107,6 +110,7 @@ export default function App() {
           {usuarioLogado.tipo === "admin" && (
             <>
               <button onClick={() => navegar("construtorasobras")} className="text-left hover:text-blue-600">Construtoras e Obras</button>
+              <button onClick={() => navegar("controlepatrimonios")} className="text-left hover:text-blue-600">🏷️ Controle de Patrimônios</button>
             </>
           )}
           <button onClick={() => navegar("atividades")} className="text-left hover:text-blue-600">📋 Atividades</button>

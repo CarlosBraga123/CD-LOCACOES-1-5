@@ -19,6 +19,8 @@ export default function BackupImportacao() {
   const obterDadosBackupAtuais = () => {
     return {
       atividades: JSON.parse(localStorage.getItem("atividades") || "[]"),
+      patrimonioEquipamentos: JSON.parse(localStorage.getItem("patrimonioEquipamentos") || "[]"),
+      equipamentosPatrimonio: JSON.parse(localStorage.getItem("equipamentosPatrimonio") || "[]"),
       construtoras: JSON.parse(localStorage.getItem("construtoras") || "[]"),
       obras: JSON.parse(localStorage.getItem("obras") || "[]"),
       pecasBalancinho: JSON.parse(localStorage.getItem("pecasBalancinho") || "{}"),
@@ -52,7 +54,7 @@ export default function BackupImportacao() {
   };
 
   const validarBackup = (conteudo) => {
-    const chavesArray = ["atividades", "construtoras", "obras", "tarefas", "usuarios"];
+    const chavesArray = ["atividades", "patrimonioEquipamentos", "equipamentosPatrimonio", "construtoras", "obras", "tarefas", "usuarios"];
 
     for (const chave of chavesArray) {
       if (conteudo[chave] !== undefined && !Array.isArray(conteudo[chave])) {
@@ -99,6 +101,8 @@ export default function BackupImportacao() {
         gerarBackupAntesDaImportacao();
 
         if (conteudo.atividades) localStorage.setItem("atividades", JSON.stringify(conteudo.atividades));
+        if (conteudo.patrimonioEquipamentos !== undefined) localStorage.setItem("patrimonioEquipamentos", JSON.stringify(conteudo.patrimonioEquipamentos));
+        if (conteudo.equipamentosPatrimonio !== undefined) localStorage.setItem("equipamentosPatrimonio", JSON.stringify(conteudo.equipamentosPatrimonio));
         if (conteudo.construtoras) localStorage.setItem("construtoras", JSON.stringify(conteudo.construtoras));
         if (conteudo.obras) localStorage.setItem("obras", JSON.stringify(conteudo.obras));
         if (conteudo.pecasBalancinho) localStorage.setItem("pecasBalancinho", JSON.stringify(conteudo.pecasBalancinho));

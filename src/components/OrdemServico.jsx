@@ -11,6 +11,10 @@ import {
   montarPayloadOrdemServico,
   obterStatusOrdemServico,
 } from "../utils/ordemServico";
+import {
+  obterPatrimonioAtual,
+  obterRegistrosPatrimonio,
+} from "../utils/patrimoniosEquipamentos";
 
 const servicosOS = [
   "Instalação",
@@ -73,7 +77,9 @@ const formatarTipoItemOS = (item, atividade) =>
 
 const montarDetalhesItemOS = (item, atividade) => {
   const detalhes = [];
-  const patrimonio = formatarValorOS(item.numeroPatrimonio);
+  const patrimonio = formatarValorOS(
+    obterPatrimonioAtual(item, obterRegistrosPatrimonio())
+  );
   const servico = normalizarServicoOS(atividade?.servico);
   const equipamento = item.equipamento || atividade.equipamento;
 

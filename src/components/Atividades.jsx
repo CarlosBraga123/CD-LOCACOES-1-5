@@ -10,6 +10,14 @@ import { obterTipoContrato } from "../utils/contrato";
 import { gerarProximoNumeroOS } from "../utils/ordemServico";
 import { normalizarAlteracaoContrapeso, obterQuantidadeContrapeso } from "../utils/locacaoFinanceira";
 import { obterUnidadesEquipamentosAtivos } from "../utils/equipamentosAtivos";
+import {
+  obterEquipamentosDisponiveis,
+  obterEquipamentosPatrimonio,
+  migrarEquipamentosConhecidos,
+  reconciliarSituacoesEquipamentos,
+  salvarEquipamentosPatrimonio,
+} from "../utils/equipamentosPatrimonio";
+import { obterRegistrosPatrimonio } from "../utils/patrimoniosEquipamentos";
 
 const filtrosListaIniciais = {
   busca: "",
@@ -119,6 +127,7 @@ const ajustarItensEquipamentos = (atividade, quantidade) => {
 
 const criarItemMovimentacao = (unidade) => ({
   idItem: gerarIdItemEquipamento(),
+  idEquipamento: unidade.idEquipamento || "",
   idItemOrigem: unidade.idUnidade,
   atividadeOrigemId: unidade.atividadeOrigemId,
   equipamento: unidade.equipamento,
@@ -143,6 +152,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
   const [construtoras, setConstrutoras] = useState([]);
   const [obras, setObras] = useState([]);
   const [atividades, setAtividades] = useState([]);
+  const [equipamentosMestres, setEquipamentosMestres] = useState([]);
   const [mostrarMateriaisId, setMostrarMateriaisId] = useState(null);
   const [filtrosLista, setFiltrosLista] = useState(filtrosListaIniciais);
   const [documentosAbertoId, setDocumentosAbertoId] = useState(null);
@@ -195,6 +205,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
   useEffect(() => {
     const dadosSalvos = JSON.parse(localStorage.getItem("atividades")) || [];
     setAtividades(dadosSalvos);
+    setEquipamentosMestres(obterEquipamentosPatrimonio());
 
     const construtorasSalvas = JSON.parse(localStorage.getItem("construtoras")) || [];
     setConstrutoras(construtorasSalvas);
@@ -248,6 +259,22 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (!dadosCarregados || obras.length === 0) return;
+    const ativos = obras.flatMap((obra) =>
+      obterUnidadesEquipamentosAtivos(obra, atividades)
+    );
+    const migracao = migrarEquipamentosConhecidos({
+      equipamentos: obterEquipamentosPatrimonio(),
+      registrosPatrimonio: obterRegistrosPatrimonio(),
+      equipamentosAtivos: ativos,
+    });
+    if (migracao.alterado) {
+      salvarEquipamentosPatrimonio(migracao.equipamentos);
+      setEquipamentosMestres(migracao.equipamentos);
+    }
+  }, [atividades, dadosCarregados, obras]);
 
   useEffect(() => {
     if (
@@ -580,6 +607,38 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
           ? sincronizarCamposMovimentacao(itensEquipamentos)
           : atualizacoesLegadas),
         itensEquipamentos,
+      };
+    });
+  };
+
+  const selecionarEquipamentoMestre = (equipamentoMestre) => {
+    setForm((atual) => {
+      const quantidade = Math.max(1, Number(atual.quantidade) || 1);
+      const itens = ajustarItensEquipamentos(atual, quantidade);
+      if (
+        itens.some(
+          (item) => String(item.idEquipamento || "") === String(equipamentoMestre.idEquipamento)
+        )
+      ) {
+        return atual;
+      }
+      const indiceLivre = itens.findIndex((item) => !item.idEquipamento);
+      if (indiceLivre < 0) {
+        alert("Aumente a quantidade para selecionar outro equipamento cadastrado.");
+        return atual;
+      }
+      itens[indiceLivre] = {
+        ...itens[indiceLivre],
+        idEquipamento: equipamentoMestre.idEquipamento,
+        equipamento: equipamentoMestre.equipamento,
+        tipoBalancinho: equipamentoMestre.tipoBalancinho || "",
+        tipoMiniGrua: equipamentoMestre.tipoMiniGrua || "",
+        numeroPatrimonio: equipamentoMestre.numeroPatrimonioAtual || "",
+      };
+      return {
+        ...atual,
+        itensEquipamentos: itens,
+        numerosPatrimonio: itens.map((item) => item.numeroPatrimonio || ""),
       };
     });
   };
@@ -1015,6 +1074,35 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
     if (usaItensEquipamentos && !validarItensEquipamentos(itensEquipamentos)) {
       return;
     }
+    if (servicoEntradaLocacaoInicial(form.servico)) {
+      const atividadesParaValidacao = form.id
+        ? atividades.filter(
+            (atividade) => String(atividade.id) !== String(form.id)
+          )
+        : atividades;
+      const ativosGlobais = obras.flatMap((obra) =>
+        obterUnidadesEquipamentosAtivos(obra, atividadesParaValidacao)
+      );
+      for (const item of itensEquipamentos || []) {
+        if (!item.idEquipamento) continue;
+        const conflito = ativosGlobais.find(
+          (ativo) =>
+            String(ativo.idEquipamento || "") === String(item.idEquipamento) ||
+            (item.numeroPatrimonio &&
+              ativo.numeroPatrimonio === item.numeroPatrimonio &&
+              ativo.idUnidade !== item.idItem)
+        );
+        if (conflito) {
+          alert(
+            `O patrimônio ${item.numeroPatrimonio || ""} já está locado na obra ${conflito.obra || "informada"}.`
+          );
+          return;
+        }
+      }
+      if ((itensEquipamentos || []).some((item) => !item.idEquipamento)) {
+        alert("Atenção: este equipamento não está vinculado a um patrimônio cadastrado.");
+      }
+    }
     if (
       usaItensMovimentacao &&
       !validarItensMovimentacao(itensEquipamentos)
@@ -1188,6 +1276,19 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
     const novas = atividades.filter((a) => a.id !== id);
     setAtividades(novas);
     localStorage.setItem("atividades", JSON.stringify(novas));
+    const ativosDepoisDoSalvamento = obras.flatMap((obra) =>
+      obterUnidadesEquipamentosAtivos(obra, novas)
+    );
+    const reconciliacao = reconciliarSituacoesEquipamentos({
+      equipamentos: obterEquipamentosPatrimonio(),
+      equipamentosAtivos: ativosDepoisDoSalvamento,
+      data: novaAtividade.dataLiberacao || novaAtividade.dataAgendamento,
+      obraOrigemId: novaAtividade.obraId,
+    });
+    if (reconciliacao.alterado) {
+      salvarEquipamentosPatrimonio(reconciliacao.equipamentos);
+      setEquipamentosMestres(reconciliacao.equipamentos);
+    }
   };
 
   const abrirOrdemServico = (item) => {
@@ -1254,6 +1355,26 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
     permiteItensEquipamentos(form.equipamento, form.servico) &&
     Array.isArray(form.itensEquipamentos) &&
     form.itensEquipamentos.length > 0;
+  const equipamentosMestresDisponiveis = useMemo(
+    () =>
+      servicoEntradaLocacaoInicial(form.servico)
+        ? obterEquipamentosDisponiveis(equipamentosMestres, form.equipamento).filter(
+            (item) =>
+              form.equipamento === "Balancinho"
+                ? !form.tipoBalancinho ||
+                  item.tipoBalancinho === form.tipoBalancinho
+                : !form.tipoMiniGrua ||
+                  item.tipoMiniGrua === form.tipoMiniGrua
+          )
+        : [],
+    [
+      equipamentosMestres,
+      form.equipamento,
+      form.servico,
+      form.tipoBalancinho,
+      form.tipoMiniGrua,
+    ]
+  );
   const mostrarSelecaoUnidadesAtivas =
     Boolean(obraSelecionadaNoFormulario) &&
     Boolean(form.equipamento) &&
@@ -1559,6 +1680,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
         {form.equipamento === "Balancinho" && !mostrarSelecaoUnidadesAtivas && (
           <>
             <select
+              disabled={form.itensEquipamentos?.some((item) => item.idEquipamento)}
               value={form.tipoBalancinho ?? ""}
               onChange={(e) => {
                 const tipoBalancinho = e.target.value;
@@ -1587,6 +1709,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
 
         {form.equipamento === "Mini Grua" && !mostrarSelecaoUnidadesAtivas && (
           <select
+            disabled={form.itensEquipamentos?.some((item) => item.idEquipamento)}
             value={form.tipoMiniGrua ?? ""}
             onChange={(e) => {
               const tipoMiniGrua = e.target.value;
@@ -1679,6 +1802,36 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
             />
             Usa contrapeso?
           </label>
+        )}
+
+        {servicoEntradaLocacaoInicial(form.servico) && form.equipamento && (
+          <section className="space-y-2 rounded-xl border bg-blue-50 p-3">
+            <div>
+              <h3 className="font-semibold">Equipamentos cadastrados disponíveis</h3>
+              <p className="text-sm text-gray-600">
+                Selecione equipamentos do galpão ou mantenha o preenchimento manual legado.
+              </p>
+            </div>
+            {equipamentosMestresDisponiveis.length === 0 ? (
+              <p className="text-sm text-gray-500">Nenhum equipamento compatível disponível.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {equipamentosMestresDisponiveis.map((item) => (
+                  <button
+                    key={item.idEquipamento}
+                    type="button"
+                    onClick={() => selecionarEquipamentoMestre(item)}
+                    className="rounded-lg border bg-white p-3 text-left text-sm"
+                  >
+                    <strong>{item.equipamento} {item.tipoBalancinho || item.tipoMiniGrua}</strong>
+                    {item.tamanho && <span> • {item.tamanho} m</span>}
+                    <span className="block text-blue-700">Patrimônio {item.numeroPatrimonioAtual}</span>
+                    <span className="text-gray-500">Situação: No galpão</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
         )}
         {form.equipamento === "Balancinho" &&
           form.servico !== "" &&
@@ -1959,12 +2112,18 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
                   <h4 className="font-semibold text-blue-700">
                     Equipamento {indice + 1}
                   </h4>
+                  {item.idEquipamento && (
+                    <p className="rounded bg-green-50 p-2 text-xs text-green-800">
+                      Patrimônio e tipo vinculados ao cadastro mestre. Defina abaixo a configuração desta instalação.
+                    </p>
+                  )}
 
                   {form.equipamento === "Balancinho" ? (
                     <>
                       <label className="block text-sm font-medium">
                         Tipo do Balancinho
                         <select
+                          disabled={Boolean(item.idEquipamento)}
                           value={item.tipoBalancinho || form.tipoBalancinho || ""}
                           onChange={(e) =>
                             atualizarItemEquipamento(
@@ -2042,6 +2201,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
                     <label className="block text-sm font-medium">
                       Tipo da Mini Grua
                       <select
+                        disabled={Boolean(item.idEquipamento)}
                         value={item.tipoMiniGrua || form.tipoMiniGrua || ""}
                         onChange={(e) =>
                           atualizarItemEquipamento(
@@ -2063,6 +2223,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
                     Número de patrimônio
                     <input
                       type="text"
+                      disabled={Boolean(item.idEquipamento)}
                       value={item.numeroPatrimonio ?? ""}
                       onChange={(e) =>
                         atualizarItemEquipamento(

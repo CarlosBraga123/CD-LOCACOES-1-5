@@ -2500,6 +2500,10 @@ export default function ConstrutorasObras({
           equipamentosAtivos={todosEquipamentosAtivos}
           obras={obras}
           onClose={() => setModalPatrimonio(null)}
+          onSubstituicaoConcluida={() => {
+            setAtividades((atuais) => [...atuais]);
+            setModalPatrimonio(null);
+          }}
           onRegistrosAlterados={(registros) => {
             setRegistrosPatrimonio(registros);
             setModalPatrimonio((atual) =>

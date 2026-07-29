@@ -5,6 +5,7 @@ import {
 } from "./patrimoniosEquipamentos";
 
 export const CHAVE_EQUIPAMENTOS_PATRIMONIO = "equipamentosPatrimonio";
+export const CHAVE_SUBSTITUICOES_EQUIPAMENTOS = "substituicoesEquipamentos";
 export const SITUACOES_EQUIPAMENTO = [
   "NO_GALPAO",
   "EM_MANUTENCAO",
@@ -32,6 +33,24 @@ export const salvarEquipamentosPatrimonio = (equipamentos) => {
   localStorage.setItem(
     CHAVE_EQUIPAMENTOS_PATRIMONIO,
     JSON.stringify(Array.isArray(equipamentos) ? equipamentos : [])
+  );
+};
+
+export const obterSubstituicoesEquipamentos = () => {
+  try {
+    const dados = JSON.parse(
+      localStorage.getItem(CHAVE_SUBSTITUICOES_EQUIPAMENTOS) || "[]"
+    );
+    return Array.isArray(dados) ? dados : [];
+  } catch {
+    return [];
+  }
+};
+
+export const salvarSubstituicoesEquipamentos = (substituicoes) => {
+  localStorage.setItem(
+    CHAVE_SUBSTITUICOES_EQUIPAMENTOS,
+    JSON.stringify(Array.isArray(substituicoes) ? substituicoes : [])
   );
 };
 
@@ -234,7 +253,7 @@ export const reconciliarSituacoesEquipamentos = ({
       idsAtivos.has(String(equipamento.idItemOrigem || ""));
     if (estaAtivo && equipamento.situacaoAdministrativa !== "LOCADO") {
       alterado = true;
-      return alterarEquipamentoPatrimonio({
+      const atualizado = alterarEquipamentoPatrimonio({
         equipamentos: [equipamento],
         idEquipamento: equipamento.idEquipamento,
         alteracoes: { situacaoAdministrativa: "LOCADO" },
@@ -242,6 +261,17 @@ export const reconciliarSituacoesEquipamentos = ({
         motivo: "Equipamento vinculado a uma locação ativa",
         tipo: "ida_locacao",
       })[0];
+      const unidadeAtiva = equipamentosAtivos.find(
+        (item) =>
+          String(item.idEquipamento || "") ===
+            String(equipamento.idEquipamento) ||
+          obterIdItemPatrimonio(item) ===
+            String(equipamento.idItemOrigem || "")
+      );
+      const historico = atualizado.historicoAdministrativo;
+      historico[historico.length - 1].obraId =
+        unidadeAtiva?.obraId || "";
+      return atualizado;
     }
     if (
       !estaAtivo &&
@@ -272,3 +302,285 @@ export const obterEquipamentosDisponiveis = (equipamentos, tipo) =>
       item.situacaoAdministrativa === "NO_GALPAO" &&
       (!tipo || item.equipamento === tipo)
   );
+
+export const montarIdentificadoresEquipamentosAtivos = (
+  equipamentosAtivos = []
+) => ({
+  idsEquipamentosAtivos: new Set(
+    equipamentosAtivos
+      .map((item) => String(item.idEquipamento || "").trim())
+      .filter(Boolean)
+  ),
+  idsItensAtivos: new Set(
+    equipamentosAtivos
+      .flatMap((item) => [
+        obterIdItemPatrimonio(item),
+        String(item.idUnidade || "").trim(),
+        String(item.idItemOrigem || "").trim(),
+      ])
+      .filter(Boolean)
+  ),
+  patrimoniosAtivos: new Set(
+    equipamentosAtivos
+      .map((item) => normalizarNumeroPatrimonio(item.numeroPatrimonio))
+      .filter(Boolean)
+  ),
+});
+
+export const aplicarSubstituicoesEquipamentosAtivos = (
+  equipamentosAtivos = [],
+  equipamentosMestres = [],
+  substituicoes = obterSubstituicoesEquipamentos()
+) => {
+  const vinculos = new Map(
+    equipamentosAtivos.map((item) => [
+      String(item.idUnidade || item.idItemOrigem || ""),
+      String(item.idEquipamento || ""),
+    ])
+  );
+  substituicoes.forEach((substituicao) => {
+    if (substituicao.unidadeOrigemId) {
+      vinculos.set(
+        String(substituicao.unidadeOrigemId),
+        String(substituicao.equipamentoDestinoId)
+      );
+    }
+    if (substituicao.unidadeDestinoId) {
+      vinculos.set(
+        String(substituicao.unidadeDestinoId),
+        String(substituicao.equipamentoOrigemId)
+      );
+    }
+  });
+  return equipamentosAtivos.map((item) => {
+    const unidadeId = String(item.idUnidade || item.idItemOrigem || "");
+    const idEquipamento = vinculos.get(unidadeId) || item.idEquipamento || "";
+    const mestre = equipamentosMestres.find(
+      (equipamento) =>
+        String(equipamento.idEquipamento) === String(idEquipamento)
+    );
+    return {
+      ...item,
+      idEquipamento,
+      numeroPatrimonio:
+        normalizarNumeroPatrimonio(mestre?.numeroPatrimonioAtual) ||
+        item.numeroPatrimonio,
+    };
+  });
+};
+
+export const obterPatrimonioFisicoAtualDaUnidade = (item = {}) => {
+  const unidadeId = String(
+    item.idUnidade || item.idItemOrigem || item.idItem || ""
+  );
+  let idEquipamento = String(item.idEquipamento || "");
+  obterSubstituicoesEquipamentos().forEach((substituicao) => {
+    if (String(substituicao.unidadeOrigemId || "") === unidadeId) {
+      idEquipamento = String(substituicao.equipamentoDestinoId || "");
+    }
+    if (String(substituicao.unidadeDestinoId || "") === unidadeId) {
+      idEquipamento = String(substituicao.equipamentoOrigemId || "");
+    }
+  });
+  const mestre = obterEquipamentosPatrimonio().find(
+    (equipamento) =>
+      String(equipamento.idEquipamento) === String(idEquipamento)
+  );
+  return normalizarNumeroPatrimonio(mestre?.numeroPatrimonioAtual);
+};
+
+const compativeisParaSubstituicao = (origem, destino) => {
+  if (origem.equipamento !== destino.equipamento) return false;
+  if (origem.equipamento === "Balancinho") {
+    return (
+      (origem.tipoBalancinho || "Eletrico") ===
+      (destino.tipoBalancinho || "Eletrico")
+    );
+  }
+  if (origem.equipamento === "Mini Grua") {
+    return (
+      String(origem.tipoMiniGrua || "") ===
+      String(destino.tipoMiniGrua || "")
+    );
+  }
+  return true;
+};
+
+export const registrarSubstituicaoEquipamento = ({
+  equipamentoOrigemId,
+  equipamentoDestinoId,
+  equipamentosAtivos,
+  data,
+  motivo,
+  observacao,
+}) => {
+  const equipamentos = obterEquipamentosPatrimonio();
+  const substituicoes = obterSubstituicoesEquipamentos();
+  const origem = equipamentos.find(
+    (item) => String(item.idEquipamento) === String(equipamentoOrigemId)
+  );
+  const destino = equipamentos.find(
+    (item) => String(item.idEquipamento) === String(equipamentoDestinoId)
+  );
+  const unidadeOrigem = equipamentosAtivos.find(
+    (item) => String(item.idEquipamento) === String(equipamentoOrigemId)
+  );
+  const unidadeDestino = equipamentosAtivos.find(
+    (item) => String(item.idEquipamento) === String(equipamentoDestinoId)
+  );
+  const unidadesOrigem = equipamentosAtivos.filter(
+    (item) => String(item.idEquipamento) === String(equipamentoOrigemId)
+  );
+  const unidadesDestino = equipamentosAtivos.filter(
+    (item) => String(item.idEquipamento) === String(equipamentoDestinoId)
+  );
+
+  if (!origem || !destino || !unidadeOrigem) {
+    throw new Error("A localização do equipamento mudou. Atualize a tela e tente novamente.");
+  }
+  if (unidadesOrigem.length !== 1 || unidadesDestino.length > 1) {
+    throw new Error("Existe conflito de identidade física nos equipamentos ativos.");
+  }
+  if (
+    ["BAIXADO", "EM_MANUTENCAO", "INDISPONIVEL"].includes(
+      origem.situacaoAdministrativa
+    )
+  ) {
+    throw new Error("O equipamento de origem possui uma situação administrativa incompatível.");
+  }
+  if (origem.idEquipamento === destino.idEquipamento) {
+    throw new Error("Selecione outro equipamento para a substituição.");
+  }
+  if (!compativeisParaSubstituicao(origem, destino)) {
+    throw new Error("Os equipamentos selecionados não são compatíveis.");
+  }
+  if (
+    ["BAIXADO", "EM_MANUTENCAO", "INDISPONIVEL"].includes(
+      destino.situacaoAdministrativa
+    ) ||
+    !normalizarNumeroPatrimonio(destino.numeroPatrimonioAtual)
+  ) {
+    throw new Error("O equipamento substituto não está disponível para esta operação.");
+  }
+  const destinoLocado = Boolean(unidadeDestino);
+  const patrimonioOrigem = normalizarNumeroPatrimonio(
+    origem.numeroPatrimonioAtual
+  );
+  const patrimonioDestino = normalizarNumeroPatrimonio(
+    destino.numeroPatrimonioAtual
+  );
+  const conflitoPatrimonio = equipamentosAtivos.find((item) => {
+    const patrimonioAtivo = normalizarNumeroPatrimonio(item.numeroPatrimonio);
+    if (
+      patrimonioAtivo !== patrimonioOrigem &&
+      patrimonioAtivo !== patrimonioDestino
+    ) {
+      return false;
+    }
+    return ![
+      String(equipamentoOrigemId),
+      String(equipamentoDestinoId),
+    ].includes(String(item.idEquipamento || ""));
+  });
+  if (conflitoPatrimonio) {
+    throw new Error("Existe conflito de patrimônio entre equipamentos ativos.");
+  }
+  if (
+    !destinoLocado &&
+    destino.situacaoAdministrativa !== "NO_GALPAO"
+  ) {
+    throw new Error("O equipamento substituto não está no galpão nem locado em outra obra.");
+  }
+  if (
+    destinoLocado &&
+    String(unidadeDestino.obraId || "") ===
+      String(unidadeOrigem.obraId || "")
+  ) {
+    throw new Error("O substituto já está locado na mesma obra.");
+  }
+
+  const idEvento = gerarId("substituicao");
+  const evento = {
+    id: idEvento,
+    data,
+    tipo: destinoLocado ? "TROCA_DIRETA" : "SUBSTITUICAO_GALPAO",
+    equipamentoOrigemId: origem.idEquipamento,
+    equipamentoDestinoId: destino.idEquipamento,
+    unidadeOrigemId: unidadeOrigem.idUnidade,
+    unidadeDestinoId: unidadeDestino?.idUnidade || "",
+    obraOrigemId: unidadeOrigem.obraId || "",
+    obraDestinoId: unidadeDestino?.obraId || "",
+    motivo: String(motivo || "").trim(),
+    observacao: String(observacao || "").trim(),
+  };
+  const novosEquipamentos = equipamentos.map((item) => {
+    if (
+      ![origem.idEquipamento, destino.idEquipamento].includes(
+        item.idEquipamento
+      )
+    ) {
+      return item;
+    }
+    const saiu = item.idEquipamento === origem.idEquipamento;
+    const situacaoNova =
+      saiu && !destinoLocado ? "NO_GALPAO" : "LOCADO";
+    const patrimonioOutro = saiu
+      ? destino.numeroPatrimonioAtual
+      : origem.numeroPatrimonioAtual;
+    const obraAnterior = saiu ? unidadeOrigem.obraId : unidadeDestino?.obraId;
+    const obraNova = saiu
+      ? unidadeDestino?.obraId || ""
+      : unidadeOrigem.obraId;
+    return {
+      ...item,
+      situacaoAdministrativa: situacaoNova,
+      historicoAdministrativo: [
+        ...(item.historicoAdministrativo || []),
+        {
+          id: gerarId("historico-admin"),
+          tipo: "SUBSTITUICAO",
+          data,
+          situacaoAnterior: item.situacaoAdministrativa,
+          situacaoNova,
+          motivo: String(motivo || "").trim(),
+          observacao: String(observacao || "").trim(),
+          patrimonioRelacionado: patrimonioOutro,
+          obraAnteriorId: obraAnterior || "",
+          obraNovaId: obraNova || "",
+          substituicaoId: idEvento,
+        },
+      ],
+    };
+  });
+
+  const substituicoesNovas = [...substituicoes, evento];
+  const equipamentosAnteriores = localStorage.getItem(
+    CHAVE_EQUIPAMENTOS_PATRIMONIO
+  );
+  const substituicoesAnteriores = localStorage.getItem(
+    CHAVE_SUBSTITUICOES_EQUIPAMENTOS
+  );
+  try {
+    salvarSubstituicoesEquipamentos(substituicoesNovas);
+    salvarEquipamentosPatrimonio(novosEquipamentos);
+  } catch (erro) {
+    if (substituicoesAnteriores === null) {
+      localStorage.removeItem(CHAVE_SUBSTITUICOES_EQUIPAMENTOS);
+    } else {
+      localStorage.setItem(
+        CHAVE_SUBSTITUICOES_EQUIPAMENTOS,
+        substituicoesAnteriores
+      );
+    }
+    if (equipamentosAnteriores === null) {
+      localStorage.removeItem(CHAVE_EQUIPAMENTOS_PATRIMONIO);
+    } else {
+      localStorage.setItem(
+        CHAVE_EQUIPAMENTOS_PATRIMONIO,
+        equipamentosAnteriores
+      );
+    }
+    throw erro;
+  }
+  return { equipamentos: novosEquipamentos, substituicoes: substituicoesNovas };
+};

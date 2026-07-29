@@ -14,7 +14,10 @@ import {
   obterEquipamentosPatrimonio,
   salvarEquipamentosPatrimonio,
   sincronizarPatrimoniosMestres,
+  registrarSubstituicaoEquipamento,
 } from "../utils/equipamentosPatrimonio";
+import { obterUnidadesEquipamentosAtivos } from "../utils/equipamentosAtivos";
+import TrocaPatrimonioModal from "./TrocaPatrimonioModal";
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 const texto = (valor) => String(valor || "").trim();
@@ -30,6 +33,7 @@ export default function PatrimonioEquipamentosModal({
   obras,
   onClose,
   onRegistrosAlterados,
+  onSubstituicaoConcluida,
 }) {
   const [filtro, setFiltro] = useState("sem");
   const [edicoes, setEdicoes] = useState({});
@@ -136,6 +140,127 @@ export default function PatrimonioEquipamentosModal({
     setSalvando(false);
   };
 
+  const montarAtivosAtuais = () => {
+    const atividadesAtuais = JSON.parse(localStorage.getItem("atividades") || "[]");
+    const obrasAtuais = JSON.parse(localStorage.getItem("obras") || "[]");
+    return obrasAtuais.flatMap((obra) =>
+      obterUnidadesEquipamentosAtivos(obra, atividadesAtuais).map((item) => ({
+        ...item,
+        obraId: obra.id || item.obraId || "",
+        obraNome: obra.nome || item.obra || "",
+        construtoraNome: obra.construtora || item.construtora || "",
+      }))
+    );
+  };
+
+  const abrirEscolhaTroca = (item) => {
+    const unidade = montarAtivosAtuais().find(
+      (ativo) => String(ativo.idEquipamento || "") === String(item.idEquipamento || "")
+    );
+    setTroca({
+      item,
+      modo: "escolha",
+      unidadeOrigemId: unidade?.idUnidade || "",
+      obraOrigemId: unidade?.obraId || "",
+      numeroNovo: "",
+      data: hoje(),
+      motivo: "",
+      motivoOutro: "",
+      observacao: "",
+      destinoId: "",
+    });
+  };
+
+  const mestresAtuais = obterEquipamentosPatrimonio();
+  const mestreOrigem = troca
+    ? mestresAtuais.find(
+        (item) => String(item.idEquipamento) === String(troca.item?.idEquipamento || "")
+      )
+    : null;
+  const candidatosSubstituicao = useMemo(() => {
+    if (!troca || troca.modo !== "substituir" || !mestreOrigem) return [];
+    return mestresAtuais
+      .filter((item) => {
+        if (item.idEquipamento === mestreOrigem.idEquipamento) return false;
+        if (
+          ["BAIXADO", "EM_MANUTENCAO", "INDISPONIVEL"].includes(item.situacaoAdministrativa) ||
+          !normalizarNumeroPatrimonio(item.numeroPatrimonioAtual) ||
+          item.equipamento !== mestreOrigem.equipamento
+        ) return false;
+        return item.equipamento === "Balancinho"
+          ? (item.tipoBalancinho || "Eletrico") === (mestreOrigem.tipoBalancinho || "Eletrico")
+          : String(item.tipoMiniGrua || "") === String(mestreOrigem.tipoMiniGrua || "");
+      })
+      .map((item) => ({
+        item,
+        ativo: equipamentosAtivos.find(
+          (unidade) => String(unidade.idEquipamento || "") === String(item.idEquipamento)
+        ),
+      }))
+      .filter(({ item, ativo }) => Boolean(ativo) || item.situacaoAdministrativa === "NO_GALPAO");
+  }, [equipamentosAtivos, mestreOrigem, mestresAtuais, troca]);
+
+  const confirmarSubstituicao = () => {
+    if (salvando) return;
+    const motivo = troca?.motivo === "Outro" ? texto(troca?.motivoOutro) : texto(troca?.motivo);
+    if (!troca?.destinoId || !troca?.data || !motivo) {
+      alert("Selecione o equipamento substituto e informe data e motivo.");
+      return;
+    }
+    const ativosAtuais = montarAtivosAtuais();
+    const origemAtual = ativosAtuais.find(
+      (item) => String(item.idEquipamento || "") === String(troca.item.idEquipamento || "")
+    );
+    const candidato = candidatosSubstituicao.find(
+      ({ item }) => String(item.idEquipamento) === String(troca.destinoId)
+    );
+    const destinoAtual = ativosAtuais.find(
+      (item) => String(item.idEquipamento) === String(troca.destinoId)
+    );
+    if (
+      !origemAtual ||
+      origemAtual.idUnidade !== troca.unidadeOrigemId ||
+      String(origemAtual.obraId || "") !== String(troca.obraOrigemId || "")
+    ) {
+      alert("A localização do equipamento mudou. Atualize a tela e tente novamente.");
+      return;
+    }
+    if (
+      !candidato ||
+      String(destinoAtual?.idUnidade || "") !== String(candidato.ativo?.idUnidade || "") ||
+      String(destinoAtual?.obraId || "") !== String(candidato.ativo?.obraId || "")
+    ) {
+      alert("A situação do substituto mudou. Atualize a tela e tente novamente.");
+      return;
+    }
+    const obraOrigem = origemAtual.obraNome || origemAtual.obra || "obra atual";
+    const localDestino = destinoAtual
+      ? destinoAtual.obraNome || destinoAtual.obra || "outra obra"
+      : "o galpão";
+    const resumo = destinoAtual
+      ? `${candidato.item.numeroPatrimonioAtual} ficará em ${obraOrigem} e ${mestreOrigem.numeroPatrimonioAtual} ficará em ${localDestino}. As configurações e locações de cada obra serão preservadas.`
+      : `${candidato.item.numeroPatrimonioAtual} ficará em ${obraOrigem} e ${mestreOrigem.numeroPatrimonioAtual} retornará ao galpão. A locação e os valores serão preservados.`;
+    if (!window.confirm(resumo)) return;
+    setSalvando(true);
+    try {
+      const resultado = registrarSubstituicaoEquipamento({
+        equipamentoOrigemId: mestreOrigem.idEquipamento,
+        equipamentoDestinoId: troca.destinoId,
+        equipamentosAtivos: ativosAtuais,
+        data: troca.data,
+        motivo,
+        observacao: troca.observacao,
+      });
+      setTroca(null);
+      onSubstituicaoConcluida?.(resultado);
+      alert("Substituição registrada com sucesso.");
+    } catch (erro) {
+      alert(erro.message || "Não foi possível concluir toda a substituição.");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const pesquisar = () => {
     const numero = normalizarNumeroPatrimonio(consulta);
     if (!numero) return setResultadoConsulta(null);
@@ -225,7 +350,7 @@ export default function PatrimonioEquipamentosModal({
                     {atual ? <p className="font-mono text-lg font-bold">{atual}</p> : (
                       <input inputMode="numeric" value={edicoes[idItem] || ""} onChange={(e) => setEdicoes({ ...edicoes, [idItem]: e.target.value })} placeholder="Novo patrimônio" className="rounded border p-2" />
                     )}
-                    {atual && <button type="button" onClick={() => setTroca({ item, numeroNovo: "", data: hoje(), motivo: "", motivoOutro: "", observacao: "" })} className="rounded border px-3 py-2 text-sm text-blue-700">Trocar</button>}
+                    {atual && <button type="button" onClick={() => abrirEscolhaTroca(item)} className="rounded border px-3 py-2 text-sm text-blue-700">Trocar</button>}
                   </div>
                 );
               })}
@@ -236,6 +361,17 @@ export default function PatrimonioEquipamentosModal({
           </>
         )}
         {troca && (
+          <TrocaPatrimonioModal
+            troca={troca}
+            setTroca={setTroca}
+            patrimonioAtual={obterPatrimonioAtual(troca.item, registros)}
+            candidatos={candidatosSubstituicao}
+            salvando={salvando}
+            confirmarNumero={confirmarTroca}
+            confirmarSubstituicao={confirmarSubstituicao}
+          />
+        )}
+        {troca && false && (
           <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
             <div className="w-full space-y-3 rounded-t-2xl bg-white p-4 sm:max-w-lg sm:rounded-2xl">
               <h4 className="font-bold">Trocar patrimônio {obterPatrimonioAtual(troca.item, registros)}</h4>

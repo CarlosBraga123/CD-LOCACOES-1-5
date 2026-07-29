@@ -14,6 +14,7 @@ import {
   obterRegistrosPatrimonio,
 } from "./patrimoniosEquipamentos";
 import {
+  aplicarSubstituicoesEquipamentosAtivos,
   obterEquipamentosPatrimonio,
   obterIdEquipamentoDoItem,
 } from "./equipamentosPatrimonio";
@@ -114,7 +115,9 @@ export const obterUnidadesEquipamentosAtivos = (
   atividades
     .filter(
       (atividade) =>
-        atividadePertenceObra(atividade, obra) && atividade.dataLiberacao
+        atividadePertenceObra(atividade, obra) &&
+        atividade.dataLiberacao &&
+        atividade.pendenteVinculoPatrimonio !== true
     )
     .sort((a, b) => {
       const porData = String(a.dataLiberacao).localeCompare(
@@ -199,11 +202,16 @@ export const obterUnidadesEquipamentosAtivos = (
       }
     });
 
-  return aplicarPatrimoniosAdministrativos(unidades, registrosPatrimonio).map(
-    (item) => ({
+  const unidadesComIdentidade = aplicarPatrimoniosAdministrativos(
+    unidades,
+    registrosPatrimonio
+  ).map((item) => ({
       ...item,
       idEquipamento: obterIdEquipamentoDoItem(item, equipamentosMestres),
-    })
+    }));
+  return aplicarSubstituicoesEquipamentosAtivos(
+    unidadesComIdentidade,
+    equipamentosMestres
   );
 };
 

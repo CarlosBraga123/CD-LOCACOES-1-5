@@ -15,6 +15,7 @@ import {
   obterPatrimonioAtual,
   obterRegistrosPatrimonio,
 } from "../utils/patrimoniosEquipamentos";
+import { obterPatrimonioFisicoAtualDaUnidade } from "../utils/equipamentosPatrimonio";
 
 const servicosOS = [
   "Instalação",
@@ -77,8 +78,10 @@ const formatarTipoItemOS = (item, atividade) =>
 
 const montarDetalhesItemOS = (item, atividade) => {
   const detalhes = [];
+  const patrimonioFisico = obterPatrimonioFisicoAtualDaUnidade(item);
   const patrimonio = formatarValorOS(
-    obterPatrimonioAtual(item, obterRegistrosPatrimonio())
+    patrimonioFisico ||
+      obterPatrimonioAtual(item, obterRegistrosPatrimonio())
   );
   const servico = normalizarServicoOS(atividade?.servico);
   const equipamento = item.equipamento || atividade.equipamento;

@@ -14,10 +14,19 @@ import {
   obterEquipamentosDisponiveis,
   obterEquipamentosPatrimonio,
   migrarEquipamentosConhecidos,
+  montarIdentificadoresEquipamentosAtivos,
   reconciliarSituacoesEquipamentos,
   salvarEquipamentosPatrimonio,
 } from "../utils/equipamentosPatrimonio";
-import { obterRegistrosPatrimonio } from "../utils/patrimoniosEquipamentos";
+import {
+  normalizarNumeroPatrimonio,
+  obterRegistrosPatrimonio,
+} from "../utils/patrimoniosEquipamentos";
+import {
+  atividadeTemPatrimonioPendente,
+  permiteVinculoPatrimonioPosterior,
+} from "../utils/pendenciasOperacionais";
+import VincularPatrimonioModal from "./VincularPatrimonioModal";
 
 const filtrosListaIniciais = {
   busca: "",
@@ -158,6 +167,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
   const [documentosAbertoId, setDocumentosAbertoId] = useState(null);
   const [atividadeOrdemServico, setAtividadeOrdemServico] = useState(null);
   const [atividadeContrato, setAtividadeContrato] = useState(null);
+  const [atividadeParaVincular, setAtividadeParaVincular] = useState(null);
   const [atividadeParaLocalizarId, setAtividadeParaLocalizarId] = useState(null);
   const [atividadeDestacadaId, setAtividadeDestacadaId] = useState(null);
   const [dadosCarregados, setDadosCarregados] = useState(false);
@@ -288,6 +298,16 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
     if (contextoNavegacao.acao === "localizar-atividade") {
       contextoConsumidoRef.current = true;
       setAtividadeParaLocalizarId(contextoNavegacao.atividadeId || null);
+      limparContextoNavegacao?.();
+      return;
+    }
+
+    if (contextoNavegacao.acao === "filtrar-pendencias-operacionais") {
+      contextoConsumidoRef.current = true;
+      setFiltrosLista({
+        ...filtrosListaIniciais,
+        status: "patrimonio-pendente",
+      });
       limparContextoNavegacao?.();
       return;
     }
@@ -639,6 +659,27 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
         ...atual,
         itensEquipamentos: itens,
         numerosPatrimonio: itens.map((item) => item.numeroPatrimonio || ""),
+      };
+    });
+  };
+
+  const desvincularEquipamentoMestre = (idItem) => {
+    setForm((atual) => {
+      const itensEquipamentos = (atual.itensEquipamentos || []).map((item) =>
+        item.idItem === idItem
+          ? {
+              ...item,
+              idEquipamento: "",
+              numeroPatrimonio: "",
+            }
+          : item
+      );
+      return {
+        ...atual,
+        itensEquipamentos,
+        numerosPatrimonio: itensEquipamentos.map(
+          (item) => item.numeroPatrimonio || ""
+        ),
       };
     });
   };
@@ -1026,6 +1067,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
       form.itensEquipamentos.length > 0;
     const usaItensMovimentacao =
       servicoSelecionaUnidadesAtivas(form.servico) &&
+      form.pendenteVinculoPatrimonio !== true &&
       Array.isArray(form.itensEquipamentos);
     const usaItensIndividuais =
       usaItensEquipamentos || usaItensMovimentacao;
@@ -1070,6 +1112,24 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
               }),
         }))
       : null;
+
+    if (servicoEntradaLocacaoInicial(form.servico)) {
+      const patrimoniosEntrada = itensEquipamentos
+        ? itensEquipamentos.map((item) => item.numeroPatrimonio)
+        : normalizarNumerosPatrimonio(
+            form.numerosPatrimonio || [],
+            Number(form.quantidade) || 1
+          );
+      if (
+        patrimoniosEntrada.length === 0 ||
+        patrimoniosEntrada.some(
+          (numero) => !String(numero || "").trim()
+        )
+      ) {
+        alert("Informe o patrimônio de todos os equipamentos da instalação.");
+        return;
+      }
+    }
 
     if (usaItensEquipamentos && !validarItensEquipamentos(itensEquipamentos)) {
       return;
@@ -1197,6 +1257,14 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
       numeroOS,
       id: form.id || Date.now(),
       iniciado: form.iniciado || false,
+      pendenteVinculoPatrimonio:
+        permiteVinculoPatrimonioPosterior(form.servico) &&
+        form.pendenteVinculoPatrimonio === true,
+      statusVinculoPatrimonio:
+        permiteVinculoPatrimonioPosterior(form.servico) &&
+        form.pendenteVinculoPatrimonio === true
+          ? "PENDENTE"
+          : form.statusVinculoPatrimonio || "",
     };
 
     const novas = form.id
@@ -1234,6 +1302,8 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
       adicionalMensalContrapeso: "",
       valorTotalMensalLocacao: "",
       iniciado: false,
+      pendenteVinculoPatrimonio: false,
+      statusVinculoPatrimonio: "",
     });
     setValoresEditadosManual(camposValorLimpos);
   };
@@ -1355,21 +1425,56 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
     permiteItensEquipamentos(form.equipamento, form.servico) &&
     Array.isArray(form.itensEquipamentos) &&
     form.itensEquipamentos.length > 0;
+  const equipamentosAtivosGerais = useMemo(() => {
+    const atividadesParaCalculo = form.id
+      ? atividades.filter(
+          (atividade) => String(atividade.id) !== String(form.id)
+        )
+      : atividades;
+    return obras.flatMap((obra) =>
+      obterUnidadesEquipamentosAtivos(obra, atividadesParaCalculo)
+    );
+  }, [atividades, form.id, obras]);
   const equipamentosMestresDisponiveis = useMemo(
-    () =>
-      servicoEntradaLocacaoInicial(form.servico)
-        ? obterEquipamentosDisponiveis(equipamentosMestres, form.equipamento).filter(
-            (item) =>
-              form.equipamento === "Balancinho"
-                ? !form.tipoBalancinho ||
-                  item.tipoBalancinho === form.tipoBalancinho
-                : !form.tipoMiniGrua ||
-                  item.tipoMiniGrua === form.tipoMiniGrua
-          )
-        : [],
+    () => {
+      if (!servicoEntradaLocacaoInicial(form.servico)) return [];
+      const {
+        idsEquipamentosAtivos,
+        idsItensAtivos,
+        patrimoniosAtivos,
+      } = montarIdentificadoresEquipamentosAtivos(equipamentosAtivosGerais);
+      const selecionados = new Set(
+        (form.itensEquipamentos || [])
+          .map((item) => String(item.idEquipamento || "").trim())
+          .filter(Boolean)
+      );
+      return obterEquipamentosDisponiveis(
+        equipamentosMestres,
+        form.equipamento
+      ).filter((item) => {
+        const patrimonio = normalizarNumeroPatrimonio(
+          item.numeroPatrimonioAtual
+        );
+        const compativel =
+          form.equipamento === "Balancinho"
+            ? !form.tipoBalancinho ||
+              item.tipoBalancinho === form.tipoBalancinho
+            : !form.tipoMiniGrua ||
+              item.tipoMiniGrua === form.tipoMiniGrua;
+        return (
+          compativel &&
+          !selecionados.has(String(item.idEquipamento)) &&
+          !idsEquipamentosAtivos.has(String(item.idEquipamento)) &&
+          !idsItensAtivos.has(String(item.idItemOrigem || "")) &&
+          (!patrimonio || !patrimoniosAtivos.has(patrimonio))
+        );
+      });
+    },
     [
+      equipamentosAtivosGerais,
       equipamentosMestres,
       form.equipamento,
+      form.itensEquipamentos,
       form.servico,
       form.tipoBalancinho,
       form.tipoMiniGrua,
@@ -1379,6 +1484,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
     Boolean(obraSelecionadaNoFormulario) &&
     Boolean(form.equipamento) &&
     servicoSelecionaUnidadesAtivas(form.servico) &&
+    form.pendenteVinculoPatrimonio !== true &&
     (!form.id || Array.isArray(form.itensEquipamentos));
   const unidadesParaSelecao = useMemo(() => {
     const unidades = [...unidadesAtivasDisponiveis];
@@ -1512,6 +1618,10 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
 
       if (filtrosLista.status === "pendentes" && atividade.dataLiberacao) return false;
       if (filtrosLista.status === "liberadas" && !atividade.dataLiberacao) return false;
+      if (
+        filtrosLista.status === "patrimonio-pendente" &&
+        !atividadeTemPatrimonioPendente(atividade)
+      ) return false;
 
       if (busca) {
         const textoBusca = [
@@ -1777,6 +1887,30 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
             <option key={servico}>{servico}</option>
           ))}
         </select>
+
+        {permiteVinculoPatrimonioPosterior(form.servico) && (
+          <label className="flex items-center gap-2 rounded-xl border bg-amber-50 p-3 text-sm font-medium text-amber-900">
+            <input
+              type="checkbox"
+              checked={form.pendenteVinculoPatrimonio === true}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  pendenteVinculoPatrimonio: e.target.checked,
+                  statusVinculoPatrimonio: e.target.checked ? "PENDENTE" : "",
+                  itensEquipamentos: e.target.checked
+                    ? undefined
+                    : form.itensEquipamentos,
+                  quantidade: e.target.checked ? 1 : form.quantidade,
+                  numerosPatrimonio: e.target.checked
+                    ? [""]
+                    : form.numerosPatrimonio,
+                })
+              }
+            />
+            Informar patrimônio depois
+          </label>
+        )}
 
         {mostrarUsaContrapesoFormulario && !mostrarItensEquipamentosFormulario && (
           <label className="flex items-center gap-2 text-sm font-medium">
@@ -2113,9 +2247,10 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
                     Equipamento {indice + 1}
                   </h4>
                   {item.idEquipamento && (
-                    <p className="rounded bg-green-50 p-2 text-xs text-green-800">
-                      Patrimônio e tipo vinculados ao cadastro mestre. Defina abaixo a configuração desta instalação.
-                    </p>
+                    <div className="flex items-center justify-between gap-2 rounded bg-green-50 p-2 text-xs text-green-800">
+                      <p>Patrimônio e tipo vinculados ao cadastro mestre. Defina abaixo a configuração desta instalação.</p>
+                      <button type="button" onClick={() => desvincularEquipamentoMestre(item.idItem)} className="shrink-0 rounded border border-green-300 bg-white px-2 py-1">Trocar</button>
+                    </div>
                   )}
 
                   {form.equipamento === "Balancinho" ? (
@@ -2538,6 +2673,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
             <option value="todas">Todas</option>
             <option value="pendentes">Pendentes</option>
             <option value="liberadas">Liberadas</option>
+            <option value="patrimonio-pendente">Patrimônio pendente</option>
           </select>
         </div>
 
@@ -2591,6 +2727,11 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
           }`}
         >
               <strong>{item.servico} - {formatarEquipamento(item)}</strong>
+              {atividadeTemPatrimonioPendente(item) && (
+                <span className="inline-block w-fit rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-900">
+                  ⚠ Patrimônio pendente
+                </span>
+              )}
               {item.usaContrapeso && (
                 <span className="inline-block w-fit rounded bg-yellow-200 px-2 py-1 text-xs font-bold text-yellow-900">
                   CONTRAPESO
@@ -2631,6 +2772,15 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
               )}
 
               <div className="flex gap-2 flex-wrap mt-2">
+                {atividadeTemPatrimonioPendente(item) && (
+                  <button
+                    type="button"
+                    onClick={() => setAtividadeParaVincular(item)}
+                    className="rounded-xl border bg-white px-4 py-1 text-amber-700 shadow-sm"
+                  >
+                    Vincular patrimônio
+                  </button>
+                )}
                 {!item.dataLiberacao && !item.iniciado && (
                   <button
                     onClick={() => {
@@ -2736,14 +2886,26 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
             onClose={() => setAtividadeOrdemServico(null)}
           />
         )}
-        {atividadeContrato && (
+      {atividadeContrato && (
           <Contrato
             atividade={atividadeContrato}
             obras={obras}
             construtoras={construtoras}
             onClose={() => setAtividadeContrato(null)}
           />
-        )}
+      )}
+      {atividadeParaVincular && (
+        <VincularPatrimonioModal
+          atividade={atividadeParaVincular}
+          atividades={atividades}
+          obras={obras}
+          onClose={() => setAtividadeParaVincular(null)}
+          onVinculado={(atualizadas) => {
+            setAtividades(atualizadas);
+            setAtividadeParaVincular(null);
+          }}
+        />
+      )}
       </div>
     );
   }

@@ -9,6 +9,8 @@ import {
 } from "../utils/patrimoniosEquipamentos";
 import PatrimonioEquipamentosModal from "./PatrimonioEquipamentosModal";
 import CadastroEquipamentoMestreModal from "./CadastroEquipamentoMestreModal";
+import VincularPatrimonioModal from "./VincularPatrimonioModal";
+import { obterPendenciasOperacionais } from "../utils/pendenciasOperacionais";
 import {
   alterarEquipamentoPatrimonio,
   migrarEquipamentosConhecidos,
@@ -52,6 +54,7 @@ export default function ControlePatrimonios() {
   const [editor, setEditor] = useState(null);
   const [cadastroMestre, setCadastroMestre] = useState(undefined);
   const [situacao, setSituacao] = useState(null);
+  const [pendenciaParaVincular, setPendenciaParaVincular] = useState(null);
 
   useEffect(() => {
     setAtividades(JSON.parse(localStorage.getItem("atividades") || "[]"));
@@ -63,11 +66,11 @@ export default function ControlePatrimonios() {
 
   const ativos = useMemo(
     () => obras.flatMap((obra) =>
-      obterUnidadesEquipamentosAtivos(obra, atividades, registros).map((item) => ({
+      obterUnidadesEquipamentosAtivos(obra, atividades, registros, equipamentosMestres).map((item) => ({
         ...item, obraId: obra.id || "", obraNome: obra.nome || "",
       }))
     ),
-    [atividades, obras, registros]
+    [atividades, equipamentosMestres, obras, registros]
   );
   const consolidados = useMemo(
     () => montarControleGeralPatrimonios({
@@ -91,6 +94,10 @@ export default function ControlePatrimonios() {
     }
   }, [ativos, equipamentosMestres, registros]);
   const resumo = useMemo(() => obterResumoControlePatrimonios(consolidados), [consolidados]);
+  const pendenciasOperacionais = useMemo(
+    () => obterPendenciasOperacionais(atividades),
+    [atividades]
+  );
   const obrasDoFiltro = useMemo(
     () => obras.filter((obra) =>
       filtros.construtora === "Todos" ||
@@ -238,6 +245,25 @@ export default function ControlePatrimonios() {
           ["Baixados", resumo.baixados],
         ].map(([rotulo, valor]) => <div key={rotulo} className="rounded-xl border bg-gray-50 p-3"><p className="text-xs text-gray-500">{rotulo}</p><p className="text-2xl font-bold text-blue-700">{valor}</p></div>)}
       </div>
+      <section className="rounded-xl border bg-amber-50 p-3">
+        <h3 className="font-semibold text-amber-900">Pendências Operacionais ({pendenciasOperacionais.length})</h3>
+        {pendenciasOperacionais.length === 0 ? (
+          <p className="mt-2 text-sm text-gray-600">Nenhuma pendência operacional.</p>
+        ) : (
+          <div className="mt-2 space-y-2">
+            {pendenciasOperacionais.map(({ atividade }) => (
+              <div key={atividade.id} className="flex flex-col gap-2 rounded-lg border bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm">
+                  <p className="font-semibold">{atividade.servico} • {atividade.equipamento}</p>
+                  <p>{atividade.construtora} • {atividade.obra}</p>
+                  <p className="text-gray-500">{dataBr(atividade.dataLiberacao || atividade.dataAgendamento)} • {atividade.equipeResponsavel || "Sem responsável"}</p>
+                </div>
+                <button type="button" onClick={() => setPendenciaParaVincular(atividade)} className="rounded border px-3 py-2 text-sm text-amber-700">Vincular patrimônio</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
       <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar patrimônio, obra, construtora ou equipamento" className="w-full rounded-xl border p-3" />
       <button type="button" onClick={() => setFiltrosAbertos(!filtrosAbertos)} className="w-full rounded-lg border px-3 py-2 text-left text-sm sm:hidden">Filtros {filtrosAbertos ? "▲" : "▼"}</button>
       <div className={`${filtrosAbertos ? "grid" : "hidden"} grid-cols-1 gap-2 rounded-xl border bg-gray-50 p-3 sm:grid sm:grid-cols-3 lg:grid-cols-6`}>
@@ -306,7 +332,7 @@ export default function ControlePatrimonios() {
               )}
             <p className="mt-2 text-sm">Origem: {detalhe.origemPatrimonio}</p>
             <h4 className="mt-4 font-semibold">Histórico administrativo</h4>
-            <div className="mt-2 space-y-2">{[...(detalhe.historicoAdministrativo || [])].sort((a,b) => String(b.data || "").localeCompare(String(a.data || ""))).map((evento) => <div key={evento.id} className="rounded border bg-blue-50 p-2 text-sm"><p>{dataBr(evento.data)}: {evento.situacaoAnterior || "Cadastro"} → {evento.situacaoNova}</p>{evento.motivo && <p>Motivo: {evento.motivo}</p>}{evento.observacao && <p>Observação: {evento.observacao}</p>}</div>)}</div>
+            <div className="mt-2 space-y-2">{[...(detalhe.historicoAdministrativo || [])].sort((a,b) => String(b.data || "").localeCompare(String(a.data || ""))).map((evento) => { const obraAnterior = obras.find((obra) => String(obra.id) === String(evento.obraAnteriorId || "")); const obraNova = obras.find((obra) => String(obra.id) === String(evento.obraNovaId || "")); return <div key={evento.id} className="rounded border bg-blue-50 p-2 text-sm"><p>{dataBr(evento.data)}: {evento.situacaoAnterior || "Cadastro"} → {evento.situacaoNova}</p>{evento.patrimonioRelacionado && <p>Patrimônio relacionado: {evento.patrimonioRelacionado}</p>}{obraAnterior && <p>Origem: {obraAnterior.nome}</p>}{obraNova ? <p>Destino: {obraNova.nome}</p> : evento.tipo === "SUBSTITUICAO" && <p>Destino: Galpão</p>}{evento.motivo && <p>Motivo: {evento.motivo}</p>}{evento.observacao && <p>Observação: {evento.observacao}</p>}</div>; })}</div>
             <h4 className="mt-4 font-semibold">Histórico de patrimônio</h4>
             <div className="mt-2 space-y-2">{[...(detalhe.historico || [])].sort((a, b) => String(b.data || "").localeCompare(String(a.data || ""))).map((evento) => {
               const obraEvento = obras.find((obra) => String(obra.id) === String(evento.obraId));
@@ -329,7 +355,20 @@ export default function ControlePatrimonios() {
           </div>
         </div>
       )}
-      {editor && <PatrimonioEquipamentosModal contexto={editor} registros={registros} equipamentosAtivos={ativos} obras={obras} onClose={() => setEditor(null)} onRegistrosAlterados={(novos) => { setRegistros(novos); const mestres = sincronizarPatrimoniosMestres(equipamentosMestres, novos); salvarEquipamentosPatrimonio(mestres); setEquipamentosMestres(mestres); }} />}
+      {editor && <PatrimonioEquipamentosModal contexto={editor} registros={registros} equipamentosAtivos={ativos} obras={obras} onClose={() => setEditor(null)} onRegistrosAlterados={(novos) => { setRegistros(novos); const mestres = sincronizarPatrimoniosMestres(equipamentosMestres, novos); salvarEquipamentosPatrimonio(mestres); setEquipamentosMestres(mestres); }} onSubstituicaoConcluida={({ equipamentos }) => { setEquipamentosMestres(equipamentos); setEditor(null); }} />}
+      {pendenciaParaVincular && (
+        <VincularPatrimonioModal
+          atividade={pendenciaParaVincular}
+          atividades={atividades}
+          obras={obras}
+          onClose={() => setPendenciaParaVincular(null)}
+          onVinculado={(atualizadas, mestresAtualizados) => {
+            setAtividades(atualizadas);
+            setEquipamentosMestres(mestresAtualizados);
+            setPendenciaParaVincular(null);
+          }}
+        />
+      )}
       {cadastroMestre !== undefined && <CadastroEquipamentoMestreModal equipamento={cadastroMestre || null} equipamentos={equipamentosMestres} registrosPatrimonio={registros} equipamentosAtivos={ativos} onClose={() => setCadastroMestre(undefined)} onSalvar={(novos, novosRegistros) => { setEquipamentosMestres(novos); setRegistros(novosRegistros); setCadastroMestre(undefined); }} />}
       {situacao && <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"><div className="w-full space-y-3 rounded-t-2xl bg-white p-4 sm:max-w-lg sm:rounded-2xl"><h3 className="font-bold">Alterar situação</h3><select value={situacao.nova} onChange={(e) => setSituacao({ ...situacao, nova: e.target.value })} className="w-full rounded border p-2"><option value="NO_GALPAO">No galpão</option><option value="EM_MANUTENCAO">Em manutenção</option><option value="INDISPONIVEL">Indisponível</option><option value="BAIXADO">Baixado</option><option value="SEM_LOCALIZACAO_ATUAL">Sem localização atual</option></select><input type="date" value={situacao.data} onChange={(e) => setSituacao({ ...situacao, data: e.target.value })} className="w-full rounded border p-2" /><input value={situacao.motivo} onChange={(e) => setSituacao({ ...situacao, motivo: e.target.value })} placeholder="Motivo obrigatório" className="w-full rounded border p-2" /><textarea value={situacao.observacao} onChange={(e) => setSituacao({ ...situacao, observacao: e.target.value })} placeholder="Observação" className="w-full rounded border p-2" /><div className="flex justify-end gap-2"><button type="button" onClick={() => setSituacao(null)} className="rounded border px-4 py-2">Cancelar</button><button type="button" onClick={confirmarSituacao} className="rounded bg-blue-600 px-4 py-2 text-white">Salvar</button></div></div></div>}
     </div>

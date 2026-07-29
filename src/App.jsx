@@ -67,7 +67,7 @@ export default function App() {
 
   const renderContent = () => {
     switch (selectedPage) {
-      case "dashboard": return <Dashboard abrirAtividade={abrirAtividade} />;
+      case "dashboard": return <Dashboard abrirAtividade={abrirAtividade} navegar={navegar} />;
       case "construtorasobras": return <ConstrutorasObras navegar={navegar} abrirAtividade={abrirAtividade} contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
       case "controlepatrimonios": return <ControlePatrimonios />;
       case "atividades": return <Atividades contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;

@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from "react";
+import { DatabaseBackup } from "lucide-react";
 
 export default function BackupImportacao() {
   const inputRef = useRef();
@@ -131,7 +132,7 @@ export default function BackupImportacao() {
 
   return (
     <div className="p-4 space-y-4">
-      <h2 className="text-lg font-bold">💾 Backup e Restauração</h2>
+      <h2 className="flex items-center gap-2 text-lg font-bold"><DatabaseBackup size={20} aria-hidden="true" />Backup e Restauração</h2>
 
       {ultimaAcao && (
         <p className="text-sm text-gray-600 border p-2 rounded bg-gray-50">

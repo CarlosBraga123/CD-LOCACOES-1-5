@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { FileBarChart } from "lucide-react";
 import { atividadePertenceObra, normalizarTexto, obterChaveObra, obterObraDaAtividade } from "../utils/obras";
 import {
   aplicarPatrimoniosAdministrativos,
@@ -276,7 +277,7 @@ export default function RelatorioServicos() {
 
   return (
     <div className="p-4 space-y-4">
-      <h2 className="text-lg font-bold">📄 Relatório de Serviços</h2>
+      <h2 className="flex items-center gap-2 text-lg font-bold"><FileBarChart size={20} aria-hidden="true" />Relatório de Serviços</h2>
 
       <button
         onClick={() => setMostrarFechamentoMes(!mostrarFechamentoMes)}

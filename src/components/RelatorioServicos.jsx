@@ -242,7 +242,9 @@ export default function RelatorioServicos() {
     partes.push(
       item.numeroPatrimonio
         ? `Patrimônio ${item.numeroPatrimonio}`
-        : "Sem patrimônio"
+        : atividade.pendenteVinculoPatrimonio
+          ? "Patrimônio pendente"
+          : "Sem patrimônio"
     );
 
     return partes.filter(Boolean).join(" - ");

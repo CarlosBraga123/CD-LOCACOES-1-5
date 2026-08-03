@@ -251,12 +251,13 @@ export default function ControlePatrimonios() {
           <p className="mt-2 text-sm text-gray-600">Nenhuma pendência operacional.</p>
         ) : (
           <div className="mt-2 space-y-2">
-            {pendenciasOperacionais.map(({ atividade }) => (
+            {pendenciasOperacionais.map(({ atividade, resumo }) => (
               <div key={atividade.id} className="flex flex-col gap-2 rounded-lg border bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm">
                   <p className="font-semibold">{atividade.servico} • {atividade.equipamento}</p>
                   <p>{atividade.construtora} • {atividade.obra}</p>
                   <p className="text-gray-500">{dataBr(atividade.dataLiberacao || atividade.dataAgendamento)} • {atividade.equipeResponsavel || "Sem responsável"}</p>
+                  <p className="text-amber-700">{resumo.total} equipamento(s) • Vinculados: {resumo.vinculados} • Pendentes: {resumo.pendentes}</p>
                 </div>
                 <button type="button" onClick={() => setPendenciaParaVincular(atividade)} className="rounded border px-3 py-2 text-sm text-amber-700">Vincular patrimônio</button>
               </div>

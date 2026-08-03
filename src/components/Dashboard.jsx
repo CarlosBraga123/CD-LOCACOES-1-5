@@ -3,7 +3,10 @@ import { calcularPeriodosLocacao } from "../utils/locacaoFinanceira";
 import { formatarMoeda } from "../utils/moeda";
 import { obterObraDaAtividade, normalizarTexto } from "../utils/obras";
 import AtividadeResumoCard from "./AtividadeResumoCard";
-import { obterPendenciasOperacionais } from "../utils/pendenciasOperacionais";
+import {
+  obterPendenciasOperacionais,
+  obterQuantidadeVinculosPendentes,
+} from "../utils/pendenciasOperacionais";
 
 const servicosValidos = ["Instalação", "Deslocamento", "Manutenção", "Ascensão", "Remoção"];
 
@@ -261,13 +264,20 @@ export default function Dashboard({ abrirAtividade, navegar }) {
     });
 
     setFaturamentoMeses(faturamento);
+    const pendenciasOperacionais = obterPendenciasOperacionais(todas);
+    const equipamentosPendentes = pendenciasOperacionais.reduce(
+      (total, { atividade }) =>
+        total + obterQuantidadeVinculosPendentes(atividade),
+      0
+    );
     setCards([
       {
         titulo: "Pendências Operacionais",
-        valor: obterPendenciasOperacionais(todas).length,
+        valor: pendenciasOperacionais.length,
         cor: "bg-amber-100",
         detalhes: {
-          "Patrimônio pendente": obterPendenciasOperacionais(todas).length,
+          "Atividades pendentes": pendenciasOperacionais.length,
+          "Equipamentos pendentes": equipamentosPendentes,
         },
         acao: "pendencias-operacionais",
       },

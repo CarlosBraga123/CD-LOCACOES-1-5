@@ -24,6 +24,8 @@ import {
 } from "../utils/patrimoniosEquipamentos";
 import {
   atividadeTemPatrimonioPendente,
+  criarItensProvisoriosVinculo,
+  obterResumoVinculoPatrimonial,
   permiteVinculoPatrimonioPosterior,
 } from "../utils/pendenciasOperacionais";
 import VincularPatrimonioModal from "./VincularPatrimonioModal";
@@ -554,9 +556,15 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
       quantidade: valor,
       numerosPatrimonio: ajustarNumerosPatrimonio(atual.numerosPatrimonio || [], novaQuantidade),
       ...((Array.isArray(atual.itensEquipamentos) ||
+        atual.pendenteVinculoPatrimonio === true ||
         (novaQuantidade > 1 &&
           permiteItensEquipamentos(atual.equipamento, atual.servico)))
-        ? { itensEquipamentos: ajustarItensEquipamentos(atual, novaQuantidade) }
+        ? {
+            itensEquipamentos:
+              atual.pendenteVinculoPatrimonio === true
+                ? criarItensProvisoriosVinculo(atual, novaQuantidade)
+                : ajustarItensEquipamentos(atual, novaQuantidade),
+          }
         : {}),
     }));
     setValoresEditadosManual((atuais) => ({
@@ -1061,18 +1069,40 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
       return;
     }
 
+    const quantidadeSolicitada = Math.max(1, Number(form.quantidade) || 1);
+    const itensAtuaisVinculo = Array.isArray(form.itensEquipamentos)
+      ? form.itensEquipamentos
+      : [];
+    const patrimoniosGerais = (form.numerosPatrimonio || []).filter(
+      (numero) => String(numero || "").trim()
+    );
+    const vinculoPosteriorAtivo =
+      Boolean(form.equipamento) &&
+      (form.pendenteVinculoPatrimonio === true ||
+        (itensAtuaisVinculo.length > 0
+          ? itensAtuaisVinculo.some(
+              (item) =>
+                !item.idEquipamento ||
+                !String(item.numeroPatrimonio || "").trim()
+            )
+          : patrimoniosGerais.length < quantidadeSolicitada));
+    const itensFonte =
+      vinculoPosteriorAtivo
+        ? criarItensProvisoriosVinculo(form, form.quantidade)
+        : form.itensEquipamentos;
     const usaItensEquipamentos =
       permiteItensEquipamentos(form.equipamento, form.servico) &&
-      Array.isArray(form.itensEquipamentos) &&
-      form.itensEquipamentos.length > 0;
+      Array.isArray(itensFonte) &&
+      itensFonte.length > 0;
     const usaItensMovimentacao =
       servicoSelecionaUnidadesAtivas(form.servico) &&
-      form.pendenteVinculoPatrimonio !== true &&
-      Array.isArray(form.itensEquipamentos);
+      Array.isArray(itensFonte);
     const usaItensIndividuais =
-      usaItensEquipamentos || usaItensMovimentacao;
+      usaItensEquipamentos ||
+      usaItensMovimentacao ||
+      vinculoPosteriorAtivo;
     const itensEquipamentos = usaItensIndividuais
-      ? form.itensEquipamentos.map((item) => ({
+      ? itensFonte.map((item) => ({
           ...item,
           idItem: item.idItem || gerarIdItemEquipamento(),
           equipamento: form.equipamento,
@@ -1113,7 +1143,10 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
         }))
       : null;
 
-    if (servicoEntradaLocacaoInicial(form.servico)) {
+    if (
+      servicoEntradaLocacaoInicial(form.servico) &&
+      !vinculoPosteriorAtivo
+    ) {
       const patrimoniosEntrada = itensEquipamentos
         ? itensEquipamentos.map((item) => item.numeroPatrimonio)
         : normalizarNumerosPatrimonio(
@@ -1165,6 +1198,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
     }
     if (
       usaItensMovimentacao &&
+      !vinculoPosteriorAtivo &&
       !validarItensMovimentacao(itensEquipamentos)
     ) {
       return;
@@ -1220,6 +1254,11 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
         )
       : form.valoresCongelados;
     const numeroOS = form.numeroOS || (form.dataLiberacao ? gerarProximoNumeroOS(atividades, form.dataLiberacao) : "");
+    const resumoVinculo = obterResumoVinculoPatrimonial({
+      ...form,
+      quantidade: quantidadeFinal,
+      itensEquipamentos: usaItensIndividuais ? itensEquipamentos : form.itensEquipamentos,
+    });
     const novaAtividade = {
       ...form,
       obra: obraSelecionada?.nome || form.obra,
@@ -1258,13 +1297,9 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
       id: form.id || Date.now(),
       iniciado: form.iniciado || false,
       pendenteVinculoPatrimonio:
-        permiteVinculoPatrimonioPosterior(form.servico) &&
-        form.pendenteVinculoPatrimonio === true,
+        resumoVinculo.pendentes > 0,
       statusVinculoPatrimonio:
-        permiteVinculoPatrimonioPosterior(form.servico) &&
-        form.pendenteVinculoPatrimonio === true
-          ? "PENDENTE"
-          : form.statusVinculoPatrimonio || "",
+        form.equipamento ? resumoVinculo.status : "NAO_APLICAVEL",
     };
 
     const novas = form.id
@@ -1888,25 +1923,28 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
           ))}
         </select>
 
-        {permiteVinculoPatrimonioPosterior(form.servico) && (
+        {form.equipamento && permiteVinculoPatrimonioPosterior(form.servico) && (
           <label className="flex items-center gap-2 rounded-xl border bg-amber-50 p-3 text-sm font-medium text-amber-900">
             <input
               type="checkbox"
               checked={form.pendenteVinculoPatrimonio === true}
-              onChange={(e) =>
+              onChange={(e) => {
+                const pendenteVinculoPatrimonio = e.target.checked;
+                const quantidade = Math.max(1, Number(form.quantidade) || 1);
                 setForm({
                   ...form,
-                  pendenteVinculoPatrimonio: e.target.checked,
-                  statusVinculoPatrimonio: e.target.checked ? "PENDENTE" : "",
-                  itensEquipamentos: e.target.checked
-                    ? undefined
+                  pendenteVinculoPatrimonio,
+                  statusVinculoPatrimonio: pendenteVinculoPatrimonio
+                    ? "PENDENTE"
+                    : "",
+                  itensEquipamentos: pendenteVinculoPatrimonio
+                    ? criarItensProvisoriosVinculo(form, quantidade)
                     : form.itensEquipamentos,
-                  quantidade: e.target.checked ? 1 : form.quantidade,
-                  numerosPatrimonio: e.target.checked
-                    ? [""]
+                  numerosPatrimonio: pendenteVinculoPatrimonio
+                    ? Array.from({ length: quantidade }, () => "")
                     : form.numerosPatrimonio,
-                })
-              }
+                });
+              }}
             />
             Informar patrimônio depois
           </label>
@@ -2693,6 +2731,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
     </p>
   ) : (
     atividadesFiltradas.map((item) => {
+      const resumoVinculo = obterResumoVinculoPatrimonial(item);
       const tamanhoInfo =
         item.servico === "Deslocamento"
           ? `Tamanho: ${item.tamanhoAnterior || ""} ➔ ${item.tamanhoNovo || ""}`
@@ -2729,9 +2768,15 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
               <strong>{item.servico} - {formatarEquipamento(item)}</strong>
               {atividadeTemPatrimonioPendente(item) && (
                 <span className="inline-block w-fit rounded bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-900">
-                  ⚠ Patrimônio pendente
+                  ⚠ Patrimônio pendente • {resumoVinculo.vinculados} de {resumoVinculo.total} vinculados
                 </span>
               )}
+              {atividadeTemPatrimonioPendente(item) &&
+                ["Remoção", "Somente recolhimento"].includes(item.servico) && (
+                  <div className="rounded bg-amber-50 p-2 text-sm text-amber-900">
+                    Serviço concluído e cobrado. Encerramento da unidade aguardando vínculo patrimonial.
+                  </div>
+                )}
               {item.usaContrapeso && (
                 <span className="inline-block w-fit rounded bg-yellow-200 px-2 py-1 text-xs font-bold text-yellow-900">
                   CONTRAPESO

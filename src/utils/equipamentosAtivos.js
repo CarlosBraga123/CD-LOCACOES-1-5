@@ -18,6 +18,7 @@ import {
   obterEquipamentosPatrimonio,
   obterIdEquipamentoDoItem,
 } from "./equipamentosPatrimonio";
+import { itemPossuiVinculoPatrimonial } from "./pendenciasOperacionais";
 
 const ordemBalancinho = ["Balancinho Elétrico", "Balancinho Manual", "Kit Contrapeso"];
 const ordemMiniGrua = ["Mini Grua 500kg", "Mini Grua 1T", "Mini Grua"];
@@ -47,6 +48,19 @@ export const calcularEquipamentosAtivosDaObra = (obra, atividades = []) => {
 
   atividades
     .filter((atividade) => atividadePertenceObra(atividade, obra) && atividade.dataLiberacao)
+    .map((atividade) => {
+      if (
+        atividade.pendenteVinculoPatrimonio !== true ||
+        atividadeIniciaLocacao(atividade)
+      ) {
+        return atividade;
+      }
+      const vinculados = (atividade.itensEquipamentos || []).filter(
+        itemPossuiVinculoPatrimonial
+      ).length;
+      return vinculados > 0 ? { ...atividade, quantidade: vinculados } : null;
+    })
+    .filter(Boolean)
     .flatMap((atividade) => obterMovimentosLocacao(atividade))
     .forEach((atividade) => {
       const quantidade = Number(atividade.quantidade) || 1;
@@ -117,7 +131,9 @@ export const obterUnidadesEquipamentosAtivos = (
       (atividade) =>
         atividadePertenceObra(atividade, obra) &&
         atividade.dataLiberacao &&
-        atividade.pendenteVinculoPatrimonio !== true
+        (atividade.pendenteVinculoPatrimonio !== true ||
+          atividadeIniciaLocacao(atividade) ||
+          (atividade.itensEquipamentos || []).some(itemPossuiVinculoPatrimonial))
     )
     .sort((a, b) => {
       const porData = String(a.dataLiberacao).localeCompare(

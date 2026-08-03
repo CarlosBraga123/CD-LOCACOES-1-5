@@ -101,7 +101,8 @@ const montarDetalhesItemOS = (item, atividade) => {
   const patrimonioFisico = obterPatrimonioFisicoAtualDaUnidade(item);
   const patrimonio = formatarValorOS(
     patrimonioFisico ||
-      obterPatrimonioAtual(item, obterRegistrosPatrimonio())
+      obterPatrimonioAtual(item, obterRegistrosPatrimonio()),
+    atividade?.pendenteVinculoPatrimonio ? "Pendente de vínculo" : "Não informado"
   );
   const servico = normalizarServicoOS(atividade?.servico);
   const equipamento = item.equipamento || atividade.equipamento;
@@ -645,6 +646,9 @@ export default function OrdemServico({ atividade, obras, construtoras, onClose }
             numerosPatrimonioValidos.join(", "),
           ],
         ]
+      : []),
+    ...(atividade?.pendenteVinculoPatrimonio && itensEquipamentos.length === 0
+      ? [["Patrimônio", "Pendente de vínculo"]]
       : []),
   ].filter(([, valor]) => valor);
 

@@ -94,7 +94,103 @@ export default function RelatorioServicos() {
     return tamanho ? `${tamanho} m` : "";
   };
 
-  const formatarItemEquipamento = (item, atividade) => {
+  const normalizarServico = (servico) =>
+    normalizarTexto(servico)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+  const normalizarMovimentoContrapeso = (valor) => {
+    const movimento = normalizarServico(valor);
+    if (["adicionar", "adicao", "incluir", "instalar"].includes(movimento)) {
+      return "adicionar";
+    }
+    if (
+      [
+        "remover",
+        "remocao",
+        "removido",
+        "retirada",
+        "retirado",
+        "retirar",
+        "recolher",
+        "recolhimento",
+      ].includes(movimento)
+    ) {
+      return "remover";
+    }
+    return "nenhuma";
+  };
+
+  const obterInformacoesContrapesoServico = (
+    atividade,
+    item = null,
+    indice = 0
+  ) => {
+    const possuiItens = obterItensEquipamentos(atividade).length > 0;
+    const dados = { ...atividade, ...item };
+    if (dados.equipamento !== "Balancinho") {
+      return { aviso: "", temMovimento: false, quantidade: 0 };
+    }
+
+    const servico = normalizarServico(atividade.servico);
+    const alteracao = normalizarMovimentoContrapeso(
+      possuiItens ? item?.alteracaoContrapeso : atividade.alteracaoContrapeso
+    );
+    if (servico === "deslocamento") {
+      const aviso =
+        alteracao === "adicionar"
+          ? "Adicionar Kit Contrapeso"
+          : alteracao === "remover"
+            ? "Remover Kit Contrapeso"
+            : "";
+      return { aviso, temMovimento: Boolean(aviso), quantidade: aviso ? 1 : 0 };
+    }
+
+    const possuiContrapeso =
+      possuiItens
+        ? item?.usaContrapesoAnterior === true || item?.usaContrapeso === true
+        : atividade.usaContrapeso === true || alteracao === "remover";
+    const servicoDeSaida = ["remocao", "somente recolhimento"].includes(
+      servico
+    );
+    if (!servicoDeSaida || !possuiContrapeso || (!possuiItens && indice > 0)) {
+      return { aviso: "", temMovimento: false, quantidade: 0 };
+    }
+
+    const quantidade = possuiItens
+      ? 1
+      : Math.max(1, Math.trunc(Number(atividade.quantidadeContrapeso) || 1));
+    const acao = servico === "remocao" ? "Retirar" : "Recolher";
+    const mostrarQuantidade =
+      !possuiItens &&
+      (quantidade > 1 || Number(atividade.quantidade) > 1);
+    const aviso = mostrarQuantidade
+      ? `${acao} ${quantidade} ${quantidade === 1 ? "Kit" : "Kits"} Contrapeso`
+      : `${acao} Kit Contrapeso`;
+    return { aviso, temMovimento: true, quantidade };
+  };
+
+  const atividadeTemMovimentoContrapeso = (atividade) => {
+    const itens = obterItensEquipamentos(atividade);
+    if (itens.length > 0) {
+      return itens.some(
+        (item, indice) =>
+          obterInformacoesContrapesoServico(atividade, item, indice)
+            .temMovimento || item.usaContrapeso === true
+      );
+    }
+    return (
+      obterInformacoesContrapesoServico(atividade).temMovimento ||
+      atividade.usaContrapeso === true
+    );
+  };
+
+  const formatarItemEquipamento = (
+    item,
+    atividade,
+    incluirAviso = true,
+    indice = 0
+  ) => {
     const dados = { ...atividade, ...item };
     const partes = [];
 
@@ -120,14 +216,23 @@ export default function RelatorioServicos() {
         partes.push(`Ancoragem: ${item.ancoragem || atividade.ancoragem}`);
       }
 
-      const alteracao = String(
-        item.alteracaoContrapeso || "nenhuma"
-      ).toLowerCase();
-      if (alteracao === "adicionar") {
-        partes.push("Adicionar Kit Contrapeso");
-      } else if (alteracao === "remover") {
-        partes.push("Remover Kit Contrapeso");
-      } else if (item.usaContrapeso === true) {
+      const avisoContrapeso = obterInformacoesContrapesoServico(
+        atividade,
+        item,
+        indice
+      ).aviso;
+      const permiteDescricaoComKit =
+        obterItensEquipamentos(atividade).length > 0 ||
+        !["remocao", "somente recolhimento"].includes(
+          normalizarServico(atividade.servico)
+        );
+      if (incluirAviso && avisoContrapeso) {
+        partes.push(avisoContrapeso);
+      } else if (
+        !avisoContrapeso &&
+        permiteDescricaoComKit &&
+        item.usaContrapeso === true
+      ) {
         partes.push("Com Kit Contrapeso");
       }
     } else {
@@ -144,21 +249,33 @@ export default function RelatorioServicos() {
   };
 
   const obterDescricoesEquipamentos = (atividade) =>
-    obterItensEquipamentosParaApresentacao(atividade).map((item) =>
-      formatarItemEquipamento(item, atividade)
+    obterItensEquipamentosParaApresentacao(atividade).map((item, indice) =>
+      formatarItemEquipamento(item, atividade, true, indice)
     );
 
   const renderItensEquipamentos = (atividade) => {
-    const descricoes = obterDescricoesEquipamentos(atividade);
-    if (descricoes.length === 0) return null;
+    const itens = obterItensEquipamentosParaApresentacao(atividade);
+    if (itens.length === 0) return null;
 
     return (
       <ul className="mt-1 space-y-0.5 pl-4 text-xs text-gray-600">
-        {descricoes.map((descricao, indice) => (
+        {itens.map((item, indice) => {
+          const informacoesContrapeso = obterInformacoesContrapesoServico(
+            atividade,
+            item,
+            indice
+          );
+          return (
           <li key={`${atividade.id}-equipamento-${indice}`} className="list-disc">
-            {descricao}
+            {formatarItemEquipamento(item, atividade, false, indice)}
+            {informacoesContrapeso.aviso && (
+              <span className="ml-2 inline-block rounded bg-yellow-200 px-2 py-1 text-xs font-bold text-yellow-900">
+                {informacoesContrapeso.aviso}
+              </span>
+            )}
           </li>
-        ))}
+          );
+        })}
       </ul>
     );
   };
@@ -261,7 +378,7 @@ export default function RelatorioServicos() {
         dados[eq].forEach((a) => {
           wsData.push([
             formatarData(a.dataLiberacao),
-            `${formatarEquipamento(a)}${a.usaContrapeso ? " - CONTRAPESO" : ""}`,
+            `${formatarEquipamento(a)}${atividadeTemMovimentoContrapeso(a) ? " - CONTRAPESO" : ""}`,
             obterQuantidadeAtividade(a),
             a.servico,
             obterDescricoesEquipamentos(a).join(" | "),
@@ -341,7 +458,7 @@ export default function RelatorioServicos() {
                             <li key={a.id}>
                               {a.servico.toUpperCase()} — Data {formatarData(a.dataLiberacao)} ({formatarEquipamento(a)})
                               {" — "}{obterQuantidadeAtividade(a)} equipamento(s)
-                              {a.usaContrapeso && (
+                              {atividadeTemMovimentoContrapeso(a) && (
                                 <span className="ml-2 inline-block rounded bg-yellow-200 px-2 py-1 text-xs font-bold text-yellow-900">
                                   CONTRAPESO
                                 </span>
@@ -421,7 +538,7 @@ export default function RelatorioServicos() {
               {filtradas.map((item) => (
                 <li key={item.id} className="border p-3 rounded bg-white shadow-sm">
                   <strong>{item.servico} • {formatarEquipamento(item)}</strong>
-                  {item.usaContrapeso && (
+                  {atividadeTemMovimentoContrapeso(item) && (
                     <span className="ml-2 inline-block rounded bg-yellow-200 px-2 py-1 text-xs font-bold text-yellow-900">
                       CONTRAPESO
                     </span>

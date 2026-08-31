@@ -8,19 +8,39 @@ import {
   aplicarPatrimoniosAdministrativos,
   obterRegistrosPatrimonio,
 } from "../utils/patrimoniosEquipamentos";
+import { atividadeEhServicoFaturavel } from "../utils/financeiroAtividades";
 
-export default function RelatorioServicos() {
+const obterPeriodoCompetencia = (competencia) => {
+  if (!/^\d{4}-\d{2}$/.test(competencia || "")) return { dataInicio: "", dataFim: "" };
+  const [ano, mes] = competencia.split("-").map(Number);
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  return {
+    dataInicio: `${competencia}-01`,
+    dataFim: `${competencia}-${String(ultimoDia).padStart(2, "0")}`,
+  };
+};
+
+export default function RelatorioServicos({ contextoNavegacao = null }) {
+  const periodoInicial = obterPeriodoCompetencia(contextoNavegacao?.competencia);
   const [atividades, setAtividades] = useState([]);
   const [construtoras, setConstrutoras] = useState([]);
   const [obras, setObras] = useState([]);
-  const [filtros, setFiltros] = useState({ construtora: "", obra: "", dataInicio: "", dataFim: "" });
+  const [valoresServicos, setValoresServicos] = useState({});
+  const [valoresPadrao, setValoresPadrao] = useState({});
+  const [filtros, setFiltros] = useState({
+    construtora: contextoNavegacao?.construtora || "",
+    obra: contextoNavegacao?.obraId ? obterChaveObra({ obraId: contextoNavegacao.obraId }) : "",
+    ...periodoInicial,
+  });
   const [mostrarFechamentoMes, setMostrarFechamentoMes] = useState(false);
-  const [mesSelecionado, setMesSelecionado] = useState("");
+  const [mesSelecionado, setMesSelecionado] = useState(contextoNavegacao?.competencia || "");
 
   useEffect(() => {
     setAtividades(JSON.parse(localStorage.getItem("atividades") || "[]"));
     setConstrutoras(JSON.parse(localStorage.getItem("construtoras") || "[]"));
     setObras(JSON.parse(localStorage.getItem("obras") || "[]"));
+    setValoresServicos(JSON.parse(localStorage.getItem("valoresServicos") || "{}"));
+    setValoresPadrao(JSON.parse(localStorage.getItem("valoresPadrao") || "{}"));
   }, []);
 
   const formatarData = (data) => {
@@ -29,12 +49,8 @@ export default function RelatorioServicos() {
     return `${d}/${m}/${y}`;
   };
 
-  const servicosValidos = ["Instalação", "Deslocamento", "Manutenção", "Ascensão", "Remoção"];
-  const atividadeCobraServico = (atividade) => {
-    if (atividade.cobraServico === false) return false;
-    if (atividade.cobraServico === true) return true;
-    return servicosValidos.includes(atividade.servico);
-  };
+  const atividadeCobraServico = (atividade) =>
+    atividadeEhServicoFaturavel(atividade, { valoresServicos, valoresPadrao });
 
   const obterNumeroOsCampo = (atividade) =>
     String(atividade?.numeroOsCampo ?? "").trim();
@@ -323,7 +339,6 @@ export default function RelatorioServicos() {
   const obrasPorMes = atividades
     .filter((a) => a.dataLiberacao?.startsWith(mesSelecionado))
     .filter(atividadeCobraServico)
-    .filter((a) => a.servico !== "Manutenção")
     .reduce((acc, a) => {
       const chave = obterChaveObra(a);
       if (!acc[chave]) acc[chave] = { rotulo: obterRotuloObra(a), Balancinho: [], "Mini Grua": [] };
@@ -334,7 +349,6 @@ export default function RelatorioServicos() {
   const totaisMes = atividades
     .filter((a) => a.dataLiberacao?.startsWith(mesSelecionado))
     .filter(atividadeCobraServico)
-    .filter((a) => a.servico !== "Manutenção")
     .reduce(
       (acc, a) => {
         const eq = a.equipamento;

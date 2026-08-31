@@ -114,9 +114,11 @@ const criarResumoCategoriasLocacao = (linhas, { ocultarZerados = false } = {}) =
   };
 };
 
-export default function RelatorioLocacao() {
+export default function RelatorioLocacao({ contextoNavegacao = null }) {
   const [atividades, setAtividades] = useState([]);
-  const [mesSelecionado, setMesSelecionado] = useState(() => new Date().toISOString().slice(0, 7));
+  const [mesSelecionado, setMesSelecionado] = useState(
+    () => contextoNavegacao?.competencia || new Date().toISOString().slice(0, 7)
+  );
   const [visualizacao, setVisualizacao] = useState("data");
   const [mostrarZerados, setMostrarZerados] = useState(false);
   const [linhasExpandidas, setLinhasExpandidas] = useState({});
@@ -883,7 +885,15 @@ export default function RelatorioLocacao() {
     );
   };
 
-  const dadosVisiveis = mostrarZerados ? dados : dados.filter((linha) => !linhaZerada(linha));
+  const chaveObraContexto = contextoNavegacao?.obraId
+    ? obterChaveObra({ obraId: contextoNavegacao.obraId })
+    : "";
+  const dadosDoContexto = chaveObraContexto
+    ? dados.filter((linha) => linha.chaveObra === chaveObraContexto)
+    : dados;
+  const dadosVisiveis = mostrarZerados
+    ? dadosDoContexto
+    : dadosDoContexto.filter((linha) => !linhaZerada(linha));
   const resumoLocacao = dadosVisiveis.reduce(
     (acc, linha) => {
       acc.totalValorMensal += Number(linha.valorMensal || 0);

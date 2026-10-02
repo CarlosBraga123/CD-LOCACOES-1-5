@@ -1,9 +1,19 @@
 import { useRef, useState, useEffect } from "react";
 import { DatabaseBackup } from "lucide-react";
+import {
+  criarBackupVersionado,
+  obterVersaoBackup,
+  validarEstruturaBackup,
+} from "../utils/contratoDados";
+import {
+  auditarDadosParaMigracao,
+  formatarRelatorioAuditoriaTexto,
+} from "../utils/auditoriaMigracao";
 
 export default function BackupImportacao() {
   const inputRef = useRef();
   const [ultimaAcao, setUltimaAcao] = useState("");
+  const [relatorioAuditoria, setRelatorioAuditoria] = useState(null);
 
   useEffect(() => {
     const ultima = localStorage.getItem("ultimoBackup");
@@ -52,46 +62,18 @@ export default function BackupImportacao() {
   };
 
   const exportarBackup = () => {
-    baixarBackup(obterDadosBackupAtuais(), `backup-cd-locacoes-${Date.now()}.json`);
+    baixarBackup(
+      criarBackupVersionado(obterDadosBackupAtuais()),
+      `backup-cd-locacoes-${Date.now()}.json`
+    );
 
     salvarUltimaAcao("Backup exportado");
-  };
-
-  const validarBackup = (conteudo) => {
-    const chavesArray = ["atividades", "patrimonioEquipamentos", "equipamentosPatrimonio", "substituicoesEquipamentos", "ajustesConfiguracaoEquipamentos", "construtoras", "obras", "tarefas", "usuarios"];
-
-    for (const chave of chavesArray) {
-      if (conteudo[chave] !== undefined && !Array.isArray(conteudo[chave])) {
-        throw new Error(`O campo "${chave}" deve ser uma lista.`);
-      }
-    }
-
-    const chavesMateriais = ["pecasBalancinho", "pecasAncoragem"];
-
-    if (
-      conteudo.controleKitContrapeso !== undefined &&
-      (typeof conteudo.controleKitContrapeso !== "object" ||
-        conteudo.controleKitContrapeso === null ||
-        Array.isArray(conteudo.controleKitContrapeso) ||
-        !Array.isArray(conteudo.controleKitContrapeso.historico || []))
-    ) {
-      throw new Error('O campo "controleKitContrapeso" deve ser uma estrutura de estoque válida.');
-    }
-
-    for (const chave of chavesMateriais) {
-      if (
-        conteudo[chave] !== undefined &&
-        typeof conteudo[chave] !== "object"
-      ) {
-        throw new Error(`O campo "${chave}" deve ser uma estrutura de materiais válida.`);
-      }
-    }
   };
 
   const gerarBackupAntesDaImportacao = () => {
     const data = new Date().toISOString().replace(/[:.]/g, "-");
     baixarBackup(
-      obterDadosBackupAtuais(),
+      criarBackupVersionado(obterDadosBackupAtuais()),
       `backup-antes-importacao-cd-locacoes-${data}.json`
     );
   };
@@ -104,7 +86,7 @@ export default function BackupImportacao() {
     reader.onload = (e) => {
       try {
         const conteudo = JSON.parse(e.target.result);
-        validarBackup(conteudo);
+        const validacao = validarEstruturaBackup(conteudo);
 
         const confirmarImportacao = window.confirm(
           "Atenção: importar este backup vai substituir os dados atuais do app. Antes de continuar, será gerado automaticamente um backup dos dados atuais. Deseja continuar?"
@@ -132,7 +114,11 @@ export default function BackupImportacao() {
         if (conteudo.empresaLogo) localStorage.setItem("empresaLogo", conteudo.empresaLogo);
         if (conteudo.empresaNome) localStorage.setItem("empresaNome", conteudo.empresaNome);
 
-        alert("✅ Backup importado com sucesso!");
+        alert(
+          validacao.legado
+            ? "✅ Backup legado importado com sucesso!"
+            : `✅ Backup versão ${obterVersaoBackup(conteudo)} importado com sucesso!`
+        );
         salvarUltimaAcao("Backup importado");
       } catch (err) {
         alert(`❌ Erro ao importar backup. ${err.message || "Verifique o arquivo."}`);
@@ -142,6 +128,27 @@ export default function BackupImportacao() {
     };
 
     reader.readAsText(file);
+  };
+
+  const executarAuditoria = () => {
+    setRelatorioAuditoria(
+      auditarDadosParaMigracao(obterDadosBackupAtuais())
+    );
+  };
+
+  const baixarRelatorio = (formato) => {
+    if (!relatorioAuditoria) return;
+    const conteudo = formato === "txt"
+      ? formatarRelatorioAuditoriaTexto(relatorioAuditoria)
+      : JSON.stringify(relatorioAuditoria, null, 2);
+    const blob = new Blob([conteudo], {
+      type: formato === "txt" ? "text/plain;charset=utf-8" : "application/json",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `auditoria-migracao-cd-locacoes-${Date.now()}.${formato}`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   return (
@@ -176,6 +183,50 @@ export default function BackupImportacao() {
           ⬆️ Importar Backup Local
         </button>
       </div>
+
+      <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <div>
+          <h3 className="font-semibold text-amber-950">Auditoria para migração</h3>
+          <p className="text-sm text-amber-900">
+            Analisa os dados atuais sem corrigir ou salvar qualquer informação.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={executarAuditoria}
+          className="rounded bg-amber-600 px-4 py-2 text-white"
+        >
+          Auditar dados para migração
+        </button>
+        {relatorioAuditoria && (
+          <div className="space-y-3 rounded-lg border border-amber-200 bg-white p-3 text-sm">
+            <h4 className="font-bold">AUDITORIA PARA MIGRAÇÃO</h4>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {Object.entries(relatorioAuditoria.contagens).map(([chave, valor]) => (
+                <p key={chave}><strong>{chave}:</strong> {valor}</p>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-3 font-semibold">
+              <span className="text-red-700">Erros: {relatorioAuditoria.totais.erros}</span>
+              <span className="text-amber-700">Avisos: {relatorioAuditoria.totais.avisos}</span>
+              <span className="text-blue-700">Informações: {relatorioAuditoria.totais.informacoes}</span>
+            </div>
+            {relatorioAuditoria.problemas.length > 0 && (
+              <div className="max-h-80 space-y-1 overflow-y-auto rounded border p-2">
+                {relatorioAuditoria.problemas.map((item, indice) => (
+                  <p key={`${item.codigo}-${indice}`}>
+                    <strong>[{item.nivel}] {item.codigo}</strong>: {item.mensagem}
+                  </p>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => baixarRelatorio("json")} className="rounded border px-3 py-2">Baixar relatório JSON</button>
+              <button type="button" onClick={() => baixarRelatorio("txt")} className="rounded border px-3 py-2">Baixar relatório TXT</button>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

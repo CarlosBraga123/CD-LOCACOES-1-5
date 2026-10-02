@@ -6,6 +6,7 @@ import Agenda from "./components/Agenda.tsx";
 import RelatorioFinanceiro from "./components/RelatorioFinanceiro";
 import RelatorioServicos from "./components/RelatorioServicos";
 import RelatorioLocacao from "./components/RelatorioLocacao";
+import RelatorioEquipamentosObra from "./components/RelatorioEquipamentosObra";
 import Relatorios from "./components/Relatorios";
 import FechamentoMensal from "./components/FechamentoMensal";
 import BackupImportacao from "./components/BackupImportacao";
@@ -76,6 +77,7 @@ export default function App() {
       case "relatoriofinanceiro": return "Relatório Financeiro";
       case "relatorioservicos": return "Relatório de Serviços";
       case "relatoriolocacao": return "Relatório de Locação";
+      case "relatorioequipamentosobra": return "Equipamentos por Obra";
       case "backup": return "Backup";
       case "configuracoes": return "Configurações";
       case "tabelacomercial": return "Tabela Comercial";
@@ -97,6 +99,7 @@ export default function App() {
       case "relatoriofinanceiro": return <RelatorioFinanceiro />;
       case "relatorioservicos": return <RelatorioServicos contextoNavegacao={contextoNavegacao} />;
       case "relatoriolocacao": return <RelatorioLocacao contextoNavegacao={contextoNavegacao} />;
+      case "relatorioequipamentosobra": return <RelatorioEquipamentosObra />;
       case "backup": return <BackupImportacao />;
       case "configuracoes": return <Configuracoes />;
       case "tabelacomercial": return <TabelaComercial />;

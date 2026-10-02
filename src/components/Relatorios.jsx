@@ -1,4 +1,4 @@
-import { Boxes, CalendarRange, FileBarChart, Wallet } from "lucide-react";
+import { Boxes, CalendarRange, FileBarChart, PackageSearch, Wallet } from "lucide-react";
 
 const relatorios = [
   {
@@ -29,6 +29,13 @@ const relatorios = [
     Icone: Wallet,
     cor: "bg-amber-50 text-amber-700",
   },
+  {
+    titulo: "Equipamentos por Obra",
+    descricao: "Fotografia atual dos equipamentos instalados em cada obra.",
+    pagina: "relatorioequipamentosobra",
+    Icone: PackageSearch,
+    cor: "bg-cyan-50 text-cyan-700",
+  },
 ];
 
 export default function Relatorios({ navegar }) {
@@ -41,7 +48,7 @@ export default function Relatorios({ navegar }) {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {relatorios.map(({ titulo, descricao, pagina, Icone, cor }) => (
           <button
             key={pagina}

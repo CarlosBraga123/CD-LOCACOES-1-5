@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { atividadeRepository } from "../repositories/atividadeRepository";
 import { obterUnidadesEquipamentosAtivos } from "../utils/equipamentosAtivos";
 import { atividadeIniciaLocacao } from "../utils/locacaoFinanceira";
 import { ordenarPatrimoniosNumerados } from "../utils/ordenacao";
@@ -92,7 +93,7 @@ export default function VincularPatrimonioModal({
 
   const confirmar = () => {
     if (salvando) return;
-    const atividadesAtuais = JSON.parse(localStorage.getItem("atividades") || "[]");
+    const atividadesAtuais = atividadeRepository.listar();
     const atividadeAtual = atividadesAtuais.find(
       (item) => String(item.id) === String(atividade.id)
     );
@@ -192,7 +193,7 @@ export default function VincularPatrimonioModal({
           );
         }
       }
-      localStorage.setItem("atividades", JSON.stringify(atualizadas));
+      atividadeRepository.salvarTodos(atualizadas);
       const reconciliacao = reconciliarPatrimonioAposAtividades({
         atividades: atualizadas,
         obras,

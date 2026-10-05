@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { atividadeRepository } from "../repositories/atividadeRepository";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 import { QRCodeCanvas } from "qrcode.react";
@@ -581,13 +582,13 @@ export default function OrdemServico({ atividade, obras, construtoras, onClose }
     setNumeroOSCampo(valorNormalizado);
 
     atividade.numeroOSCampo = valorNormalizado;
-    const atividadesSalvas = JSON.parse(localStorage.getItem("atividades") || "[]");
+    const atividadesSalvas = atividadeRepository.listar();
     const atividadesAtualizadas = atividadesSalvas.map((item) =>
       String(item.id) === String(atividade.id)
         ? { ...item, numeroOSCampo: valorNormalizado }
         : item
     );
-    localStorage.setItem("atividades", JSON.stringify(atividadesAtualizadas));
+    atividadeRepository.salvarTodos(atividadesAtualizadas);
   };
 
   useEffect(() => {

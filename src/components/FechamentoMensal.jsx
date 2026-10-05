@@ -10,6 +10,7 @@ import {
 } from "../utils/financeiroAtividades";
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
+import { atividadeRepository } from "../repositories/atividadeRepository";
 
 const obterCompetenciaAtual = () => {
   const hoje = new Date();
@@ -33,7 +34,7 @@ const formatarMoeda = (valor) =>
 export default function FechamentoMensal({ navegar }) {
   const [competencia, setCompetencia] = useState(obterCompetenciaAtual);
   const [dadosBase] = useState(() => ({
-    atividades: carregarJson("atividades", []),
+    atividades: atividadeRepository.listar(),
     obras: obraRepository.listar(),
     construtoras: construtoraRepository.listar(),
     valoresServicos: carregarJson("valoresServicos", {}),

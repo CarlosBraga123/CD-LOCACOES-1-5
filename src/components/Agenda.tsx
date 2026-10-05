@@ -15,6 +15,7 @@ import {
 import { ptBR } from "date-fns/locale";
 import { obterObraDaAtividade } from "../utils/obras";
 import { obraRepository } from "../repositories/obraRepository";
+import { atividadeRepository } from "../repositories/atividadeRepository";
 
 const logoURL = "/CD LOCACOES.png";
 
@@ -40,7 +41,7 @@ export default function Agenda() {
   const [referencia, setReferencia] = useState(new Date());
   const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(null);
 
-  const atividades: Atividade[] = JSON.parse(localStorage.getItem("atividades") || "[]");
+  const atividades: Atividade[] = atividadeRepository.listar();
   const obras: Obra[] = obraRepository.listar();
 
   const inicioSemana = startOfWeek(referencia, { weekStartsOn: 1 });

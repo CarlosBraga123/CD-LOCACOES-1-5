@@ -5,13 +5,8 @@ import { obterRegistrosPatrimonio } from "../utils/patrimoniosEquipamentos";
 import { montarEquipamentosPorObra, montarRelatorioGeralEquipamentos } from "../utils/equipamentosPorObra";
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
+import { atividadeRepository } from "../repositories/atividadeRepository";
 
-const lerLista = (chave) => {
-  try {
-    const valor = JSON.parse(localStorage.getItem(chave) || "[]");
-    return Array.isArray(valor) ? valor : [];
-  } catch { return []; }
-};
 const formatarData = (data) => { const [ano, mes, dia] = data.split("-"); return `${dia}/${mes}/${ano}`; };
 const obterNomeConstrutora = (obra, construtoras) => {
   const cadastro = construtoras.find((item) => String(item.id) === String(obra?.construtoraId || ""));
@@ -47,7 +42,7 @@ const BlocoObra = ({ item }) => (
 );
 
 export default function RelatorioEquipamentosObra() {
-  const atividades = useMemo(() => lerLista("atividades"), []);
+  const atividades = useMemo(() => atividadeRepository.listar(), []);
   const obras = useMemo(() => obraRepository.listar(), []);
   const construtoras = useMemo(() => construtoraRepository.listar(), []);
   const registrosPatrimonio = useMemo(() => obterRegistrosPatrimonio(), []);

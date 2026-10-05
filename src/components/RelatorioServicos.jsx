@@ -12,6 +12,7 @@ import { atividadeEhServicoFaturavel } from "../utils/financeiroAtividades";
 import { consolidarRelatorioServicos } from "../utils/relatorioServicos";
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
+import { atividadeRepository } from "../repositories/atividadeRepository";
 
 const obterPeriodoCompetencia = (competencia) => {
   if (!/^\d{4}-\d{2}$/.test(competencia || "")) return { dataInicio: "", dataFim: "" };
@@ -39,7 +40,7 @@ export default function RelatorioServicos({ contextoNavegacao = null }) {
   const [mesSelecionado, setMesSelecionado] = useState(contextoNavegacao?.competencia || "");
 
   useEffect(() => {
-    setAtividades(JSON.parse(localStorage.getItem("atividades") || "[]"));
+    setAtividades(atividadeRepository.listar());
     setConstrutoras(construtoraRepository.listar());
     setObras(obraRepository.listar());
     setValoresServicos(JSON.parse(localStorage.getItem("valoresServicos") || "{}"));

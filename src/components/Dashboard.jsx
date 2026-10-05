@@ -11,6 +11,7 @@ import { obterEquipamentosPatrimonio } from "../utils/equipamentosPatrimonio";
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
 import { tarefaRepository } from "../repositories/tarefaRepository";
+import { atividadeRepository } from "../repositories/atividadeRepository";
 
 const servicosValidos = ["Instalação", "Deslocamento", "Manutenção", "Ascensão", "Remoção"];
 
@@ -31,7 +32,7 @@ export default function Dashboard({ abrirAtividade, navegar }) {
     const tarefasTodas = tarefaRepository.listar();
     setTarefasPendentes(tarefasTodas.filter((t) => !t.concluida));
 
-    const todas = JSON.parse(localStorage.getItem("atividades") || "[]");
+    const todas = atividadeRepository.listar();
     const obrasSalvas = obraRepository.listar();
     const construtorasSalvas = construtoraRepository.listar();
     const valoresServicos = JSON.parse(localStorage.getItem("valoresServicos") || "{}");

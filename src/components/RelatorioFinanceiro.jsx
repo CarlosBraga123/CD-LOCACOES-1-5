@@ -5,6 +5,7 @@ import {
 import { atividadePertenceObra, normalizarTexto, obterChaveObra, obterObraDaAtividade } from "../utils/obras";
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
+import { atividadeRepository } from "../repositories/atividadeRepository";
 
 export default function RelatorioFinanceiro() {
   const [atividades, setAtividades] = useState([]);
@@ -15,7 +16,7 @@ export default function RelatorioFinanceiro() {
   const [visualizacao, setVisualizacao] = useState("atividade");
 
   useEffect(() => {
-    const dados = JSON.parse(localStorage.getItem("atividades")) || [];
+    const dados = atividadeRepository.listar();
     setAtividades(dados);
     setObras(obraRepository.listar());
   }, []);

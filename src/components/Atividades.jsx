@@ -34,6 +34,7 @@ import VincularPatrimonioModal from "./VincularPatrimonioModal";
 import { ordenarPatrimoniosNumerados } from "../utils/ordenacao";
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
+import { atividadeRepository } from "../repositories/atividadeRepository";
 
 const filtrosListaIniciais = {
   busca: "",
@@ -221,7 +222,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
   });
 
   useEffect(() => {
-    const dadosSalvos = JSON.parse(localStorage.getItem("atividades")) || [];
+    const dadosSalvos = atividadeRepository.listar();
     const equipamentosSalvos = obterEquipamentosPatrimonio();
     setAtividades(dadosSalvos);
 
@@ -1376,7 +1377,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
       : [novaAtividade, ...atividades];
 
     setAtividades(novas);
-    localStorage.setItem("atividades", JSON.stringify(novas));
+    atividadeRepository.salvarTodos(novas);
     posProcessarPatrimonio(novas, {
       data: novaAtividade.dataLiberacao || novaAtividade.dataAgendamento,
       obraOrigemId: novaAtividade.obraId,
@@ -1455,7 +1456,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
     const atividadeExcluida = atividades.find((a) => a.id === id);
     const novas = atividades.filter((a) => a.id !== id);
     setAtividades(novas);
-    localStorage.setItem("atividades", JSON.stringify(novas));
+    atividadeRepository.salvarTodos(novas);
     posProcessarPatrimonio(novas, {
       data:
         atividadeExcluida?.dataLiberacao ||
@@ -2982,7 +2983,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
                         a.id === item.id ? { ...a, iniciado: true } : a
                        );
                        setAtividades(atualizadas);
-                       localStorage.setItem("atividades", JSON.stringify(atualizadas));
+                       atividadeRepository.salvarTodos(atualizadas);
                      }}
                     className="bg-white border rounded-xl px-4 py-1 text-orange-600 shadow-sm"
                   >
@@ -3006,7 +3007,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
                           : a
                       );
                       setAtividades(atualizadas);
-                      localStorage.setItem("atividades", JSON.stringify(atualizadas));
+                      atividadeRepository.salvarTodos(atualizadas);
                       posProcessarPatrimonio(atualizadas, {
                         data: dataLiberacao,
                         obraOrigemId: item.obraId || "",

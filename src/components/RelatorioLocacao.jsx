@@ -16,6 +16,7 @@ import { enriquecerDetalhamentoPatrimonial } from "../utils/detalhamentoPatrimon
 import { obterRegistrosPatrimonio } from "../utils/patrimoniosEquipamentos";
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
+import { atividadeRepository } from "../repositories/atividadeRepository";
 
 const normalizarCategoriaLocacao = (valor) =>
   normalizarTexto(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -137,7 +138,7 @@ export default function RelatorioLocacao({ contextoNavegacao = null }) {
   const registrosPatrimonio = useMemo(() => obterRegistrosPatrimonio(), []);
 
   useEffect(() => {
-    setAtividades(JSON.parse(localStorage.getItem("atividades") || "[]"));
+    setAtividades(atividadeRepository.listar());
   }, []);
 
   // Formatacao de exibicao.

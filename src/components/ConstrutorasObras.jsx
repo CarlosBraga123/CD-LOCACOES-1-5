@@ -33,6 +33,7 @@ import {
 } from "../utils/ordenacao";
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
+import { atividadeRepository } from "../repositories/atividadeRepository";
 import {
   obterResumoEquipamentosAtivos,
   obterResumoUnidadesEquipamentosAtivos,
@@ -256,7 +257,7 @@ export default function ConstrutorasObras({
   const carregarDados = useCallback(() => {
     setConstrutoras(construtoraRepository.listar());
     setObras(obraRepository.listar());
-    setAtividades(JSON.parse(localStorage.getItem("atividades") || "[]"));
+    setAtividades(atividadeRepository.listar());
     setRegistrosPatrimonio(obterRegistrosPatrimonio());
     setDadosCarregados(true);
   }, []);

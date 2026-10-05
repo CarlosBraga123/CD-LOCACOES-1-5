@@ -32,18 +32,11 @@ import {
 } from "../utils/equipamentosPatrimonio";
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
+import { atividadeRepository } from "../repositories/atividadeRepository";
 
 const normalizar = (valor) =>
   String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 const texto = (valor) => String(valor || "").trim();
-const lerListaLocal = (chave) => {
-  try {
-    const valor = JSON.parse(localStorage.getItem(chave) || "[]");
-    return Array.isArray(valor) ? valor : [];
-  } catch {
-    return [];
-  }
-};
 const dataBr = (data) => {
   if (!data) return "—";
   const [ano, mes, dia] = String(data).split("-");
@@ -92,7 +85,7 @@ export default function ControlePatrimonios() {
   const [versaoDados, setVersaoDados] = useState(0);
 
   useEffect(() => {
-    setAtividades(lerListaLocal("atividades"));
+    setAtividades(atividadeRepository.listar());
     setObras(obraRepository.listar());
     setConstrutoras(construtoraRepository.listar());
     setRegistros(obterRegistrosPatrimonio());

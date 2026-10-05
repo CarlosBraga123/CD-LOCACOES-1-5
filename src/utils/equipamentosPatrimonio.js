@@ -1,10 +1,12 @@
 import {
-  CHAVE_PATRIMONIOS_EQUIPAMENTOS,
   normalizarNumeroPatrimonio,
   obterIdItemPatrimonio,
   obterPatrimonioAtual,
 } from "./patrimoniosEquipamentos";
-import { CHAVE_AJUSTES_CONFIGURACAO } from "./ajustesConfiguracaoEquipamentos";
+import { equipamentoPatrimonioRepository } from "../repositories/equipamentoPatrimonioRepository";
+import { vinculoPatrimonioRepository } from "../repositories/vinculoPatrimonioRepository";
+import { ajusteConfiguracaoEquipamentoRepository } from "../repositories/ajusteConfiguracaoEquipamentoRepository";
+import { substituicaoEquipamentoRepository } from "../repositories/substituicaoEquipamentoRepository";
 
 export const CHAVE_EQUIPAMENTOS_PATRIMONIO = "equipamentosPatrimonio";
 export const CHAVE_SUBSTITUICOES_EQUIPAMENTOS = "substituicoesEquipamentos";
@@ -20,39 +22,21 @@ const gerarId = (prefixo) =>
   globalThis.crypto?.randomUUID?.() ||
   `${prefixo}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
-export const obterEquipamentosPatrimonio = () => {
-  try {
-    const dados = JSON.parse(
-      localStorage.getItem(CHAVE_EQUIPAMENTOS_PATRIMONIO) || "[]"
-    );
-    return Array.isArray(dados) ? dados : [];
-  } catch {
-    return [];
-  }
-};
+export const obterEquipamentosPatrimonio = () =>
+  equipamentoPatrimonioRepository.listar();
 
 export const salvarEquipamentosPatrimonio = (equipamentos) => {
-  localStorage.setItem(
-    CHAVE_EQUIPAMENTOS_PATRIMONIO,
-    JSON.stringify(Array.isArray(equipamentos) ? equipamentos : [])
+  equipamentoPatrimonioRepository.salvarTodos(
+    Array.isArray(equipamentos) ? equipamentos : []
   );
 };
 
-export const obterSubstituicoesEquipamentos = () => {
-  try {
-    const dados = JSON.parse(
-      localStorage.getItem(CHAVE_SUBSTITUICOES_EQUIPAMENTOS) || "[]"
-    );
-    return Array.isArray(dados) ? dados : [];
-  } catch {
-    return [];
-  }
-};
+export const obterSubstituicoesEquipamentos = () =>
+  substituicaoEquipamentoRepository.listar();
 
 export const salvarSubstituicoesEquipamentos = (substituicoes) => {
-  localStorage.setItem(
-    CHAVE_SUBSTITUICOES_EQUIPAMENTOS,
-    JSON.stringify(Array.isArray(substituicoes) ? substituicoes : [])
+  substituicaoEquipamentoRepository.salvarTodos(
+    Array.isArray(substituicoes) ? substituicoes : []
   );
 };
 
@@ -144,30 +128,23 @@ export const excluirEquipamentoPatrimonioSeguro = ({
       String(substituicao.equipamentoDestinoId || "") !== idEquipamento
   );
 
-  const chaves = [
-    CHAVE_EQUIPAMENTOS_PATRIMONIO,
-    CHAVE_PATRIMONIOS_EQUIPAMENTOS,
-    CHAVE_AJUSTES_CONFIGURACAO,
-    CHAVE_SUBSTITUICOES_EQUIPAMENTOS,
+  const repositorios = [
+    equipamentoPatrimonioRepository,
+    vinculoPatrimonioRepository,
+    ajusteConfiguracaoEquipamentoRepository,
+    substituicaoEquipamentoRepository,
   ];
   const anteriores = new Map(
-    chaves.map((chave) => [chave, localStorage.getItem(chave)])
+    repositorios.map((repository) => [repository, repository.criarSnapshot()])
   );
   try {
     salvarEquipamentosPatrimonio(novosEquipamentos);
-    localStorage.setItem(
-      CHAVE_PATRIMONIOS_EQUIPAMENTOS,
-      JSON.stringify(novosRegistros)
-    );
-    localStorage.setItem(
-      CHAVE_AJUSTES_CONFIGURACAO,
-      JSON.stringify(novosAjustes)
-    );
+    vinculoPatrimonioRepository.salvarTodos(novosRegistros);
+    ajusteConfiguracaoEquipamentoRepository.salvarTodos(novosAjustes);
     salvarSubstituicoesEquipamentos(novasSubstituicoes);
   } catch (erro) {
-    anteriores.forEach((valor, chave) => {
-      if (valor === null) localStorage.removeItem(chave);
-      else localStorage.setItem(chave, valor);
+    anteriores.forEach((snapshot, repository) => {
+      repository.restaurarSnapshot(snapshot);
     });
     throw erro;
   }
@@ -179,15 +156,78 @@ export const excluirEquipamentoPatrimonioSeguro = ({
   };
 };
 
-export const obterIdEquipamentoDoItem = (item, equipamentos = []) => {
-  if (item?.idEquipamento) return String(item.idEquipamento);
-  const idItem = obterIdItemPatrimonio(item);
-  return String(
-    equipamentos.find(
-      (equipamento) => String(equipamento.idItemOrigem || "") === idItem
-    )?.idEquipamento || ""
-  );
+const tiposEquipamentoCompativeis = (item = {}, equipamento = {}) => {
+  if (
+    !item.equipamento ||
+    !equipamento.equipamento ||
+    item.equipamento !== equipamento.equipamento
+  ) {
+    return false;
+  }
+  if (item.equipamento === "Balancinho") {
+    return (
+      (item.tipoBalancinho || "Eletrico") ===
+      (equipamento.tipoBalancinho || "Eletrico")
+    );
+  }
+  if (item.equipamento === "Mini Grua") {
+    return (
+      String(item.tipoMiniGrua || "") ===
+      String(equipamento.tipoMiniGrua || "")
+    );
+  }
+  return true;
 };
+
+export const obterIdEquipamentoDoItem = (item, equipamentos = []) => {
+  const idEquipamentoExplicito = String(item?.idEquipamento || "").trim();
+  if (idEquipamentoExplicito) {
+    return equipamentos.some(
+      (equipamento) =>
+        String(equipamento.idEquipamento || "") === idEquipamentoExplicito
+    )
+      ? idEquipamentoExplicito
+      : "";
+  }
+  const idItem = obterIdItemPatrimonio(item);
+  const equipamentoPorOrigem = equipamentos.find(
+    (equipamento) => String(equipamento.idItemOrigem || "") === idItem
+  );
+  if (equipamentoPorOrigem?.idEquipamento) {
+    return String(equipamentoPorOrigem.idEquipamento);
+  }
+
+  const patrimonio = normalizarNumeroPatrimonio(
+    item?.numeroPatrimonio || item?.numeroPatrimonioAtual
+  );
+  if (!patrimonio) return "";
+
+  const candidatos = equipamentos.filter(
+    (equipamento) =>
+      equipamento.ativo !== false &&
+      !["BAIXADO", "INDISPONIVEL"].includes(
+        equipamento.situacaoAdministrativa
+      ) &&
+      normalizarNumeroPatrimonio(equipamento.numeroPatrimonioAtual) ===
+        patrimonio &&
+      tiposEquipamentoCompativeis(item, equipamento)
+  );
+  return candidatos.length === 1
+    ? String(candidatos[0].idEquipamento || "")
+    : "";
+};
+
+export const associarEquipamentoMestreAoItem = (
+  item = {},
+  equipamentoMestre = {}
+) => ({
+  ...item,
+  idEquipamento: equipamentoMestre.idEquipamento,
+  equipamento: equipamentoMestre.equipamento,
+  tipoBalancinho: equipamentoMestre.tipoBalancinho || "",
+  tipoMiniGrua: equipamentoMestre.tipoMiniGrua || "",
+  numeroPatrimonio: equipamentoMestre.numeroPatrimonioAtual || "",
+});
 
 const motivoIndisponibilidadeMestre = {
   EM_MANUTENCAO: "em_manutencao",
@@ -834,32 +874,18 @@ export const registrarSubstituicaoEquipamento = ({
   });
 
   const substituicoesNovas = [...substituicoes, evento];
-  const equipamentosAnteriores = localStorage.getItem(
-    CHAVE_EQUIPAMENTOS_PATRIMONIO
-  );
-  const substituicoesAnteriores = localStorage.getItem(
-    CHAVE_SUBSTITUICOES_EQUIPAMENTOS
-  );
+  const equipamentosAnteriores = equipamentoPatrimonioRepository.criarSnapshot();
+  const substituicoesAnteriores = substituicaoEquipamentoRepository.criarSnapshot();
   try {
     salvarSubstituicoesEquipamentos(substituicoesNovas);
     salvarEquipamentosPatrimonio(novosEquipamentos);
   } catch (erro) {
-    if (substituicoesAnteriores === null) {
-      localStorage.removeItem(CHAVE_SUBSTITUICOES_EQUIPAMENTOS);
-    } else {
-      localStorage.setItem(
-        CHAVE_SUBSTITUICOES_EQUIPAMENTOS,
-        substituicoesAnteriores
-      );
-    }
-    if (equipamentosAnteriores === null) {
-      localStorage.removeItem(CHAVE_EQUIPAMENTOS_PATRIMONIO);
-    } else {
-      localStorage.setItem(
-        CHAVE_EQUIPAMENTOS_PATRIMONIO,
-        equipamentosAnteriores
-      );
-    }
+    substituicaoEquipamentoRepository.restaurarSnapshot(
+      substituicoesAnteriores
+    );
+    equipamentoPatrimonioRepository.restaurarSnapshot(
+      equipamentosAnteriores
+    );
     throw erro;
   }
   return { equipamentos: novosEquipamentos, substituicoes: substituicoesNovas };

@@ -1,22 +1,14 @@
 import { obterPatrimonioAtual } from "./patrimoniosEquipamentos";
+import { ajusteConfiguracaoEquipamentoRepository } from "../repositories/ajusteConfiguracaoEquipamentoRepository";
 
 export const CHAVE_AJUSTES_CONFIGURACAO = "ajustesConfiguracaoEquipamentos";
 
-export const obterAjustesConfiguracaoEquipamentos = () => {
-  try {
-    const ajustes = JSON.parse(
-      localStorage.getItem(CHAVE_AJUSTES_CONFIGURACAO) || "[]"
-    );
-    return Array.isArray(ajustes) ? ajustes : [];
-  } catch {
-    return [];
-  }
-};
+export const obterAjustesConfiguracaoEquipamentos = () =>
+  ajusteConfiguracaoEquipamentoRepository.listar();
 
 export const salvarAjustesConfiguracaoEquipamentos = (ajustes) => {
-  localStorage.setItem(
-    CHAVE_AJUSTES_CONFIGURACAO,
-    JSON.stringify(Array.isArray(ajustes) ? ajustes : [])
+  ajusteConfiguracaoEquipamentoRepository.salvarTodos(
+    Array.isArray(ajustes) ? ajustes : []
   );
 };
 

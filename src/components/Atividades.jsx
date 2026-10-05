@@ -11,6 +11,7 @@ import { gerarProximoNumeroOS } from "../utils/ordemServico";
 import { normalizarAlteracaoContrapeso, obterQuantidadeContrapeso } from "../utils/locacaoFinanceira";
 import { obterUnidadesEquipamentosAtivos } from "../utils/equipamentosAtivos";
 import {
+  associarEquipamentoMestreAoItem,
   obterEquipamentosDisponiveis,
   obterEquipamentosPatrimonio,
   migrarEquipamentosConhecidos,
@@ -668,14 +669,10 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
         alert("Aumente a quantidade para selecionar outro equipamento cadastrado.");
         return atual;
       }
-      itens[indiceLivre] = {
-        ...itens[indiceLivre],
-        idEquipamento: equipamentoMestre.idEquipamento,
-        equipamento: equipamentoMestre.equipamento,
-        tipoBalancinho: equipamentoMestre.tipoBalancinho || "",
-        tipoMiniGrua: equipamentoMestre.tipoMiniGrua || "",
-        numeroPatrimonio: equipamentoMestre.numeroPatrimonioAtual || "",
-      };
+      itens[indiceLivre] = associarEquipamentoMestreAoItem(
+        itens[indiceLivre],
+        equipamentoMestre
+      );
       return {
         ...atual,
         itensEquipamentos: itens,

@@ -19,6 +19,14 @@ export const localStorageAdapter = {
     obterStorage()?.setItem(chave, JSON.stringify(valor));
   },
 
+  lerBruto(chave) {
+    return obterStorage()?.getItem(chave) ?? null;
+  },
+
+  escreverBruto(chave, valor) {
+    obterStorage()?.setItem(chave, valor);
+  },
+
   remover(chave) {
     obterStorage()?.removeItem(chave);
   },

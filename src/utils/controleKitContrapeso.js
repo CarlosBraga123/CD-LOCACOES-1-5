@@ -1,32 +1,25 @@
+import { controleKitContrapesoRepository } from "../repositories/controleKitContrapesoRepository";
+
 export const CHAVE_CONTROLE_KIT_CONTRAPESO = "controleKitContrapeso";
 
 const estruturaVazia = () => ({ quantidadeTotal: 0, historico: [] });
 
 export const obterControleKitContrapeso = () => {
-  try {
-    const dados = JSON.parse(
-      localStorage.getItem(CHAVE_CONTROLE_KIT_CONTRAPESO) || "null"
-    );
-    if (!dados || typeof dados !== "object" || Array.isArray(dados)) {
-      return estruturaVazia();
-    }
-    return {
-      quantidadeTotal: Math.max(0, Number(dados.quantidadeTotal) || 0),
-      historico: Array.isArray(dados.historico) ? dados.historico : [],
-    };
-  } catch {
+  const dados = controleKitContrapesoRepository.obter(null);
+  if (!dados || typeof dados !== "object" || Array.isArray(dados)) {
     return estruturaVazia();
   }
+  return {
+    quantidadeTotal: Math.max(0, Number(dados.quantidadeTotal) || 0),
+    historico: Array.isArray(dados.historico) ? dados.historico : [],
+  };
 };
 
 export const salvarControleKitContrapeso = (controle) => {
-  localStorage.setItem(
-    CHAVE_CONTROLE_KIT_CONTRAPESO,
-    JSON.stringify({
+  controleKitContrapesoRepository.salvar({
       quantidadeTotal: Math.max(0, Number(controle?.quantidadeTotal) || 0),
       historico: Array.isArray(controle?.historico) ? controle.historico : [],
-    })
-  );
+  });
 };
 
 export const ajustarQuantidadeKitContrapeso = ({

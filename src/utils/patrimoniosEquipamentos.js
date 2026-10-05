@@ -1,3 +1,5 @@
+import { vinculoPatrimonioRepository } from "../repositories/vinculoPatrimonioRepository";
+
 export const CHAVE_PATRIMONIOS_EQUIPAMENTOS = "patrimonioEquipamentos";
 
 export const normalizarNumeroPatrimonio = (numero) =>
@@ -9,21 +11,12 @@ export const validarNumeroPatrimonio = (numero) =>
 export const obterIdItemPatrimonio = (item) =>
   String(item?.idItem || item?.idItemOrigem || item?.idUnidade || "").trim();
 
-export const obterRegistrosPatrimonio = () => {
-  try {
-    const registros = JSON.parse(
-      localStorage.getItem(CHAVE_PATRIMONIOS_EQUIPAMENTOS) || "[]"
-    );
-    return Array.isArray(registros) ? registros : [];
-  } catch {
-    return [];
-  }
-};
+export const obterRegistrosPatrimonio = () =>
+  vinculoPatrimonioRepository.listar();
 
 export const salvarRegistrosPatrimonio = (registros) => {
-  localStorage.setItem(
-    CHAVE_PATRIMONIOS_EQUIPAMENTOS,
-    JSON.stringify(Array.isArray(registros) ? registros : [])
+  vinculoPatrimonioRepository.salvarTodos(
+    Array.isArray(registros) ? registros : []
   );
 };
 

@@ -13,6 +13,18 @@ export const criarRepositorioListaLocal = (chave) => {
       localStorageAdapter.escreverJson(chave, registros);
     },
 
+    criarSnapshot() {
+      return localStorageAdapter.lerBruto(chave);
+    },
+
+    restaurarSnapshot(snapshot) {
+      if (snapshot === null) {
+        localStorageAdapter.remover(chave);
+        return;
+      }
+      localStorageAdapter.escreverBruto(chave, snapshot);
+    },
+
     obterPorId(id) {
       return listar().find((registro) => String(registro?.id) === String(id));
     },

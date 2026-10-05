@@ -9,6 +9,13 @@ import { atividadeRepository } from "../repositories/atividadeRepository";
 import { tabelaComercialRepository } from "../repositories/tabelaComercialRepository";
 import { valoresServicosRepository } from "../repositories/valoresServicosRepository";
 import { valoresPadraoRepository } from "../repositories/valoresPadraoRepository";
+import { obterRegistrosPatrimonio } from "../utils/patrimoniosEquipamentos";
+import { obterEquipamentosPatrimonio } from "../utils/equipamentosPatrimonio";
+import {
+  enriquecerPeriodosPatrimoniaisFinanceiros,
+  obterItensPatrimoniaisServico,
+  removerSufixoPatrimonialEquipamento,
+} from "../utils/patrimonioRelatorioFinanceiro";
 
 export default function RelatorioFinanceiro() {
   const [atividades, setAtividades] = useState([]);
@@ -26,6 +33,8 @@ export default function RelatorioFinanceiro() {
 
   const valoresServicos = valoresServicosRepository.obter({});
   const valoresPadrao = valoresPadraoRepository.obter({});
+  const registrosPatrimonio = obterRegistrosPatrimonio();
+  const equipamentosMestres = obterEquipamentosPatrimonio();
 
   const servicosValidos = ["Instalação", "Deslocamento", "Manutenção", "Ascensão", "Remoção"];
 
@@ -74,6 +83,22 @@ export default function RelatorioFinanceiro() {
     if (item.iniciado) return "Em andamento";
     return "Agendado";
   };
+
+  const formatarTamanhoServico = (item) => {
+    const anterior = String(item.tamanhoAnterior ?? "").trim();
+    const novo = String(item.tamanhoNovo ?? item.tamanho ?? "").trim();
+    if (normalizarTexto(item.servico) === "deslocamento" && anterior && novo) {
+      return `${anterior} → ${novo}`;
+    }
+    return novo ? `${novo} m` : "";
+  };
+
+  const obterDetalhesServico = (atividade) =>
+    obterItensPatrimoniaisServico({
+      atividade,
+      registrosPatrimonio,
+      equipamentosMestres,
+    });
 
   const obterValorServico = (item) => {
     if (item.valoresCongelados?.totalServico !== undefined) {
@@ -323,6 +348,11 @@ export default function RelatorioFinanceiro() {
       })
     : { periodos: [] };
   const periodosLocacaoFinanceiro = resultadoPeriodosLocacao.periodos;
+  const periodosLocacaoExibicao = enriquecerPeriodosPatrimoniaisFinanceiros({
+    periodos: periodosLocacaoFinanceiro,
+    atividades: atividadesBaseLocacao,
+    registrosPatrimonio,
+  });
   const totalLocacoes = periodosLocacaoFinanceiro.reduce((acc, periodo) => {
     return acc + Number(periodo.valorProporcional || 0);
   }, 0);
@@ -500,7 +530,27 @@ export default function RelatorioFinanceiro() {
                       </td>
                       <td className="px-3 py-2 break-words">{item.construtora}</td>
                       <td className="px-3 py-2 break-words">{item.obra}</td>
-                      <td className="px-3 py-2 break-words">{formatarEquipamento(item)}</td>
+                      <td className="px-3 py-2 break-words">
+                        {obterDetalhesServico(item).map((detalhe, indice) => {
+                          const tamanho = formatarTamanhoServico(detalhe);
+                          return (
+                            <div
+                              key={`${item.id}:equipamento:${detalhe.idItem || detalhe.idEquipamento || "legado"}:${indice}`}
+                              className={indice > 0 ? "mt-1" : ""}
+                            >
+                              <span>
+                                {formatarEquipamento(detalhe)}
+                                {tamanho ? ` — ${tamanho}` : ""}
+                              </span>
+                              <span className="block text-xs text-gray-500">
+                                — {detalhe.numeroPatrimonio
+                                  ? `Patrimônio ${detalhe.numeroPatrimonio}`
+                                  : "Sem patrimônio"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </td>
                       <td className="px-3 py-2 break-words">{item.servico}</td>
                       <td className="px-3 py-2">
                         {formatarStatus(item)}
@@ -513,9 +563,10 @@ export default function RelatorioFinanceiro() {
                       </td>
                     </tr>
                   ))}
-                  {periodosLocacaoFinanceiro.map((periodo, indice) => (
+                  {periodosLocacaoExibicao.map((periodo, indice) => (
                     <tr
                       key={
+                        periodo.identidadeCanonica ||
                         periodo.idUnidade ||
                         `locacao-${periodo.atividadeInicioId || "sem-inicio"}-${
                           periodo.atividadeFimId || "aberto"
@@ -531,7 +582,14 @@ export default function RelatorioFinanceiro() {
                       </td>
                       <td className="px-3 py-2 break-words">{periodo.obra}</td>
                       <td className="px-3 py-2 break-words">
-                        {periodo.equipamento}
+                        <span>{removerSufixoPatrimonialEquipamento(periodo.equipamento)}</span>
+                        {periodo.exibirPatrimonioDetalhe !== false && (
+                          <span className="block text-xs text-gray-500">
+                            — {periodo.patrimonioDetalhe
+                              ? `Patrimônio ${periodo.patrimonioDetalhe}`
+                              : "Sem patrimônio"}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2 break-words">Locação</td>
                       <td className="px-3 py-2">

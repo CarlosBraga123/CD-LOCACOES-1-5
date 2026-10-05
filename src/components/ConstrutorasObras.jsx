@@ -31,6 +31,8 @@ import {
   ordenarObrasPorConstrutoraENome,
   ordenarObrasPorEquipamentosAtivos,
 } from "../utils/ordenacao";
+import { construtoraRepository } from "../repositories/construtoraRepository";
+import { obraRepository } from "../repositories/obraRepository";
 import {
   obterResumoEquipamentosAtivos,
   obterResumoUnidadesEquipamentosAtivos,
@@ -252,8 +254,8 @@ export default function ConstrutorasObras({
   const deveRolarDetalhesObraRef = useRef(false);
 
   const carregarDados = useCallback(() => {
-    setConstrutoras(JSON.parse(localStorage.getItem("construtoras") || "[]"));
-    setObras(JSON.parse(localStorage.getItem("obras") || "[]"));
+    setConstrutoras(construtoraRepository.listar());
+    setObras(obraRepository.listar());
     setAtividades(JSON.parse(localStorage.getItem("atividades") || "[]"));
     setRegistrosPatrimonio(obterRegistrosPatrimonio());
     setDadosCarregados(true);
@@ -538,7 +540,7 @@ export default function ConstrutorasObras({
     const atualizadas = [...construtoras, novaConstrutora];
 
     setConstrutoras(atualizadas);
-    localStorage.setItem("construtoras", JSON.stringify(atualizadas));
+    construtoraRepository.salvarTodos(atualizadas);
     setConstrutoraAbertaId(novaConstrutora.id);
     fecharFormularioConstrutora();
   };
@@ -570,7 +572,7 @@ export default function ConstrutorasObras({
     );
 
     setConstrutoras(atualizadas);
-    localStorage.setItem("construtoras", JSON.stringify(atualizadas));
+    construtoraRepository.salvarTodos(atualizadas);
     setConstrutoraAbertaId(
       formularioConstrutora.id || formularioConstrutora.nome
     );
@@ -597,7 +599,7 @@ export default function ConstrutorasObras({
         obterChaveConstrutoraCadastro(construtora)
     );
     setConstrutoras(atualizadas);
-    localStorage.setItem("construtoras", JSON.stringify(atualizadas));
+    construtoraRepository.salvarTodos(atualizadas);
     setConstrutoraAbertaId(null);
 
     if (
@@ -940,7 +942,7 @@ export default function ConstrutorasObras({
     const atualizadas = [...obras, novaObra];
 
     setObras(atualizadas);
-    localStorage.setItem("obras", JSON.stringify(atualizadas));
+    obraRepository.salvarTodos(atualizadas);
     setConstrutoraAbertaId(
       construtora?.id || construtora?.nome || novaObra.construtora
     );
@@ -969,7 +971,7 @@ export default function ConstrutorasObras({
     );
 
     setObras(atualizadas);
-    localStorage.setItem("obras", JSON.stringify(atualizadas));
+    obraRepository.salvarTodos(atualizadas);
     setConstrutoraAbertaId(
       construtora?.id || construtora?.nome || dados.construtora
     );
@@ -985,7 +987,7 @@ export default function ConstrutorasObras({
       (item) => obterChaveObraCadastro(item) !== chave
     );
     setObras(atualizadas);
-    localStorage.setItem("obras", JSON.stringify(atualizadas));
+    obraRepository.salvarTodos(atualizadas);
     setObraAbertaId(null);
     setObraAtivaAbertaId(null);
 

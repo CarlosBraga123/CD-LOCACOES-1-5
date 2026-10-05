@@ -30,6 +30,8 @@ import {
   salvarEquipamentosPatrimonio,
   sincronizarPatrimoniosMestres,
 } from "../utils/equipamentosPatrimonio";
+import { construtoraRepository } from "../repositories/construtoraRepository";
+import { obraRepository } from "../repositories/obraRepository";
 
 const normalizar = (valor) =>
   String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -91,8 +93,8 @@ export default function ControlePatrimonios() {
 
   useEffect(() => {
     setAtividades(lerListaLocal("atividades"));
-    setObras(lerListaLocal("obras"));
-    setConstrutoras(lerListaLocal("construtoras"));
+    setObras(obraRepository.listar());
+    setConstrutoras(construtoraRepository.listar());
     setRegistros(obterRegistrosPatrimonio());
     setEquipamentosMestres(obterEquipamentosPatrimonio());
   }, []);

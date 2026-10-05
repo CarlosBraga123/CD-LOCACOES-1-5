@@ -14,6 +14,8 @@ import { obterIdentidadeCanonicaUnidade } from "../utils/unidadesEquipamentos";
 import { obterUnidadesEquipamentosAtivos } from "../utils/equipamentosAtivos";
 import { enriquecerDetalhamentoPatrimonial } from "../utils/detalhamentoPatrimonioLocacao";
 import { obterRegistrosPatrimonio } from "../utils/patrimoniosEquipamentos";
+import { construtoraRepository } from "../repositories/construtoraRepository";
+import { obraRepository } from "../repositories/obraRepository";
 
 const normalizarCategoriaLocacao = (valor) =>
   normalizarTexto(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -129,7 +131,7 @@ export default function RelatorioLocacao({ contextoNavegacao = null }) {
   const [resumosObraExpandidos, setResumosObraExpandidos] = useState({});
   const [exportacaoPdfAtiva, setExportacaoPdfAtiva] = useState(false);
   const obras = useMemo(
-    () => JSON.parse(localStorage.getItem("obras") || "[]"),
+    () => obraRepository.listar(),
     []
   );
   const registrosPatrimonio = useMemo(() => obterRegistrosPatrimonio(), []);
@@ -156,7 +158,7 @@ export default function RelatorioLocacao({ contextoNavegacao = null }) {
   const dados = useMemo(() => {
     if (!mesSelecionado) return [];
 
-    const construtoras = JSON.parse(localStorage.getItem("construtoras") || "[]");
+    const construtoras = construtoraRepository.listar();
     const tabelaComercialPadrao = JSON.parse(localStorage.getItem("tabelaComercialPadrao") || "null") || {
       locacoes: {},
     };

@@ -8,6 +8,9 @@ import {
 } from "../utils/pendenciasOperacionais";
 import { obterRegistrosPatrimonio } from "../utils/patrimoniosEquipamentos";
 import { obterEquipamentosPatrimonio } from "../utils/equipamentosPatrimonio";
+import { construtoraRepository } from "../repositories/construtoraRepository";
+import { obraRepository } from "../repositories/obraRepository";
+import { tarefaRepository } from "../repositories/tarefaRepository";
 
 const servicosValidos = ["Instalação", "Deslocamento", "Manutenção", "Ascensão", "Remoção"];
 
@@ -25,12 +28,12 @@ export default function Dashboard({ abrirAtividade, navegar }) {
     const usuarioSalvo = JSON.parse(localStorage.getItem("usuarioLogado"));
     if (usuarioSalvo?.nome) setUsuario(usuarioSalvo.nome);
 
-    const tarefasTodas = JSON.parse(localStorage.getItem("tarefas") || "[]");
+    const tarefasTodas = tarefaRepository.listar();
     setTarefasPendentes(tarefasTodas.filter((t) => !t.concluida));
 
     const todas = JSON.parse(localStorage.getItem("atividades") || "[]");
-    const obrasSalvas = JSON.parse(localStorage.getItem("obras") || "[]");
-    const construtorasSalvas = JSON.parse(localStorage.getItem("construtoras") || "[]");
+    const obrasSalvas = obraRepository.listar();
+    const construtorasSalvas = construtoraRepository.listar();
     const valoresServicos = JSON.parse(localStorage.getItem("valoresServicos") || "{}");
     const valoresPadrao = JSON.parse(localStorage.getItem("valoresPadrao") || "{}");
     const registrosPatrimonio = obterRegistrosPatrimonio();
@@ -338,7 +341,7 @@ export default function Dashboard({ abrirAtividade, navegar }) {
   }, []);
 
   const concluir = (id) => {
-    const todas = JSON.parse(localStorage.getItem("tarefas") || "[]");
+    const todas = tarefaRepository.listar();
     const atualizadas = todas.map((t) =>
       t.id === id
         ? {
@@ -349,7 +352,7 @@ export default function Dashboard({ abrirAtividade, navegar }) {
           }
         : t
     );
-    localStorage.setItem("tarefas", JSON.stringify(atualizadas));
+    tarefaRepository.salvarTodos(atualizadas);
     setTarefasPendentes(atualizadas.filter((t) => !t.concluida));
   };
 

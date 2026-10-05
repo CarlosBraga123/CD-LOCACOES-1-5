@@ -29,6 +29,7 @@ import {
   obterUltimoAjusteConfiguracao,
   salvarAjustesConfiguracaoEquipamentos,
 } from "../utils/ajustesConfiguracaoEquipamentos";
+import { obraRepository } from "../repositories/obraRepository";
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 const texto = (valor) => String(valor || "").trim();
@@ -336,7 +337,7 @@ export default function PatrimonioEquipamentosModal({
 
   const montarAtivosAtuais = () => {
     const atividadesAtuais = JSON.parse(localStorage.getItem("atividades") || "[]");
-    const obrasAtuais = JSON.parse(localStorage.getItem("obras") || "[]");
+    const obrasAtuais = obraRepository.listar();
     return obrasAtuais.flatMap((obra) =>
       obterUnidadesEquipamentosAtivos(obra, atividadesAtuais).map((item) => ({
         ...item,

@@ -3,6 +3,8 @@ import { Printer } from "lucide-react";
 import { obterEquipamentosPatrimonio } from "../utils/equipamentosPatrimonio";
 import { obterRegistrosPatrimonio } from "../utils/patrimoniosEquipamentos";
 import { montarEquipamentosPorObra, montarRelatorioGeralEquipamentos } from "../utils/equipamentosPorObra";
+import { construtoraRepository } from "../repositories/construtoraRepository";
+import { obraRepository } from "../repositories/obraRepository";
 
 const lerLista = (chave) => {
   try {
@@ -46,8 +48,8 @@ const BlocoObra = ({ item }) => (
 
 export default function RelatorioEquipamentosObra() {
   const atividades = useMemo(() => lerLista("atividades"), []);
-  const obras = useMemo(() => lerLista("obras"), []);
-  const construtoras = useMemo(() => lerLista("construtoras"), []);
+  const obras = useMemo(() => obraRepository.listar(), []);
+  const construtoras = useMemo(() => construtoraRepository.listar(), []);
   const registrosPatrimonio = useMemo(() => obterRegistrosPatrimonio(), []);
   const equipamentosMestres = useMemo(() => obterEquipamentosPatrimonio(), []);
   const [modo, setModo] = useState("obra");

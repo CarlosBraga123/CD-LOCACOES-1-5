@@ -3,6 +3,8 @@ import {
   calcularPeriodosFinanceirosLocacao,
 } from "../utils/locacaoFinanceira";
 import { atividadePertenceObra, normalizarTexto, obterChaveObra, obterObraDaAtividade } from "../utils/obras";
+import { construtoraRepository } from "../repositories/construtoraRepository";
+import { obraRepository } from "../repositories/obraRepository";
 
 export default function RelatorioFinanceiro() {
   const [atividades, setAtividades] = useState([]);
@@ -15,7 +17,7 @@ export default function RelatorioFinanceiro() {
   useEffect(() => {
     const dados = JSON.parse(localStorage.getItem("atividades")) || [];
     setAtividades(dados);
-    setObras(JSON.parse(localStorage.getItem("obras") || "[]"));
+    setObras(obraRepository.listar());
   }, []);
 
   let valoresServicos = {};
@@ -107,7 +109,7 @@ export default function RelatorioFinanceiro() {
   };
 
   const obterTabelasFallbackLocacao = (atividade) => {
-    const construtoras = JSON.parse(localStorage.getItem("construtoras") || "[]");
+    const construtoras = construtoraRepository.listar();
     const tabelaComercialPadrao = JSON.parse(localStorage.getItem("tabelaComercialPadrao") || "null") || {
       locacoes: {},
     };

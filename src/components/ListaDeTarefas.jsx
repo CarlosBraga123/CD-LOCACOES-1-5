@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { tarefaRepository } from "../repositories/tarefaRepository";
 
 export default function ListaDeTarefas({ usuario }) {
   const [tarefas, setTarefas] = useState([]);
@@ -6,13 +7,13 @@ export default function ListaDeTarefas({ usuario }) {
   const [editandoId, setEditandoId] = useState(null);
 
   useEffect(() => {
-    const salvas = JSON.parse(localStorage.getItem("tarefas") || "[]");
+    const salvas = tarefaRepository.listar();
     setTarefas(salvas);
   }, []);
 
   const salvarTarefas = (lista) => {
     setTarefas(lista);
-    localStorage.setItem("tarefas", JSON.stringify(lista));
+    tarefaRepository.salvarTodos(lista);
   };
 
   const adicionarOuAtualizar = () => {

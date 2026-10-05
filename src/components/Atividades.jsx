@@ -32,6 +32,8 @@ import {
 } from "../utils/pendenciasOperacionais";
 import VincularPatrimonioModal from "./VincularPatrimonioModal";
 import { ordenarPatrimoniosNumerados } from "../utils/ordenacao";
+import { construtoraRepository } from "../repositories/construtoraRepository";
+import { obraRepository } from "../repositories/obraRepository";
 
 const filtrosListaIniciais = {
   busca: "",
@@ -223,10 +225,10 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
     const equipamentosSalvos = obterEquipamentosPatrimonio();
     setAtividades(dadosSalvos);
 
-    const construtorasSalvas = JSON.parse(localStorage.getItem("construtoras")) || [];
+    const construtorasSalvas = construtoraRepository.listar();
     setConstrutoras(construtorasSalvas);
 
-    const obrasSalvas = JSON.parse(localStorage.getItem("obras")) || [];
+    const obrasSalvas = obraRepository.listar();
     setObras(obrasSalvas);
     const reconciliacaoInicial = reconciliarPatrimonioAposAtividades({
       atividades: dadosSalvos,

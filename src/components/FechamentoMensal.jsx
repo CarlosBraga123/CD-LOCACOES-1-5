@@ -8,6 +8,8 @@ import {
   obterValorEfetivoServico,
   obterValorMensalLocacaoEfetivo,
 } from "../utils/financeiroAtividades";
+import { construtoraRepository } from "../repositories/construtoraRepository";
+import { obraRepository } from "../repositories/obraRepository";
 
 const obterCompetenciaAtual = () => {
   const hoje = new Date();
@@ -32,8 +34,8 @@ export default function FechamentoMensal({ navegar }) {
   const [competencia, setCompetencia] = useState(obterCompetenciaAtual);
   const [dadosBase] = useState(() => ({
     atividades: carregarJson("atividades", []),
-    obras: carregarJson("obras", []),
-    construtoras: carregarJson("construtoras", []),
+    obras: obraRepository.listar(),
+    construtoras: construtoraRepository.listar(),
     valoresServicos: carregarJson("valoresServicos", {}),
     valoresPadrao: carregarJson("valoresPadrao", {}),
     tabelaComercialPadrao: carregarJson("tabelaComercialPadrao", { locacoes: {} }),

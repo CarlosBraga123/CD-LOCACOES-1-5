@@ -9,6 +9,7 @@ import {
   normalizarTabelaComercial,
   normalizarTabelaComercialParaSalvar,
 } from "../utils/tabelaComercial";
+import { tabelaComercialRepository } from "../repositories/tabelaComercialRepository";
 
 export default function TabelaComercial() {
   const [tabela, setTabela] = useState(() =>
@@ -17,7 +18,7 @@ export default function TabelaComercial() {
   const [camposEmEdicao, setCamposEmEdicao] = useState({});
 
   useEffect(() => {
-    const salva = JSON.parse(localStorage.getItem("tabelaComercialPadrao") || "null");
+    const salva = tabelaComercialRepository.obter(null);
 
     if (!salva) return;
 
@@ -77,7 +78,7 @@ export default function TabelaComercial() {
       atualizadoEm: new Date().toISOString(),
     };
 
-    localStorage.setItem("tabelaComercialPadrao", JSON.stringify(tabelaAtualizada));
+    tabelaComercialRepository.salvar(tabelaAtualizada);
     setTabela(tabelaAtualizada);
     alert("Tabela Comercial salva com sucesso!");
   };

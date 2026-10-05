@@ -34,6 +34,7 @@ import {
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
 import { atividadeRepository } from "../repositories/atividadeRepository";
+import { tabelaComercialRepository } from "../repositories/tabelaComercialRepository";
 import {
   obterResumoEquipamentosAtivos,
   obterResumoUnidadesEquipamentosAtivos,
@@ -473,9 +474,7 @@ export default function ConstrutorasObras({
   const navegarPara = (pagina, contexto = null) => navegar?.(pagina, contexto);
 
   const criarCopiaTabelaComercialPadrao = () => {
-    const tabelaPadraoSalva = JSON.parse(
-      localStorage.getItem("tabelaComercialPadrao") || "null"
-    );
+    const tabelaPadraoSalva = tabelaComercialRepository.obter(null);
 
     return copiarTabelaComercialPadrao(
       tabelaPadraoSalva,
@@ -832,9 +831,7 @@ export default function ConstrutorasObras({
     );
 
   const criarTabelaComercialHerdada = (construtora) => {
-    const tabelaPadraoSalva = JSON.parse(
-      localStorage.getItem("tabelaComercialPadrao") || "null"
-    );
+    const tabelaPadraoSalva = tabelaComercialRepository.obter(null);
 
     return herdarTabelaComercialDaConstrutora({
       tabelaConstrutora: construtora?.tabelaComercial,

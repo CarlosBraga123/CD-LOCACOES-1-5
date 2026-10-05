@@ -36,6 +36,9 @@ import { ordenarPatrimoniosNumerados } from "../utils/ordenacao";
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
 import { atividadeRepository } from "../repositories/atividadeRepository";
+import { tabelaComercialRepository } from "../repositories/tabelaComercialRepository";
+import { valoresServicosRepository } from "../repositories/valoresServicosRepository";
+import { valoresPadraoRepository } from "../repositories/valoresPadraoRepository";
 
 const filtrosListaIniciais = {
   busca: "",
@@ -440,7 +443,7 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
   const obterTabelaComercialDaObra = () => {
     const obraSelecionada = obterObraDaAtividade(form, obras);
     const construtoraSelecionada = construtoras.find((c) => c.nome === form.construtora);
-    const tabelaPadrao = JSON.parse(localStorage.getItem("tabelaComercialPadrao") || "null") || {
+    const tabelaPadrao = tabelaComercialRepository.obter(null) || {
       servicos: {},
       locacoes: {},
     };
@@ -487,8 +490,8 @@ export default function Atividades({ contextoNavegacao, limparContextoNavegacao 
 
   const obterFallbackServicoAntigo = () => {
     try {
-      const valoresServicos = JSON.parse(localStorage.getItem("valoresServicos") || "{}");
-      const valoresPadrao = JSON.parse(localStorage.getItem("valoresPadrao") || "{}");
+      const valoresServicos = valoresServicosRepository.obter({});
+      const valoresPadrao = valoresPadraoRepository.obter({});
       const chaveAntiga = `${form.equipamento}-${form.servico}`;
 
       if (valoresServicos[chaveAntiga] !== undefined) return Number(valoresServicos[chaveAntiga] || 0);

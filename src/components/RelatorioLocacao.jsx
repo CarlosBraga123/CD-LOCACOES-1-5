@@ -17,6 +17,7 @@ import { obterRegistrosPatrimonio } from "../utils/patrimoniosEquipamentos";
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
 import { atividadeRepository } from "../repositories/atividadeRepository";
+import { tabelaComercialRepository } from "../repositories/tabelaComercialRepository";
 
 const normalizarCategoriaLocacao = (valor) =>
   normalizarTexto(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -160,7 +161,7 @@ export default function RelatorioLocacao({ contextoNavegacao = null }) {
     if (!mesSelecionado) return [];
 
     const construtoras = construtoraRepository.listar();
-    const tabelaComercialPadrao = JSON.parse(localStorage.getItem("tabelaComercialPadrao") || "null") || {
+    const tabelaComercialPadrao = tabelaComercialRepository.obter(null) || {
       locacoes: {},
     };
     const inicioMes = `${mesSelecionado}-01`;

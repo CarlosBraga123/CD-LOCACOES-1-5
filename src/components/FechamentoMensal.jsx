@@ -11,18 +11,13 @@ import {
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
 import { atividadeRepository } from "../repositories/atividadeRepository";
+import { tabelaComercialRepository } from "../repositories/tabelaComercialRepository";
+import { valoresServicosRepository } from "../repositories/valoresServicosRepository";
+import { valoresPadraoRepository } from "../repositories/valoresPadraoRepository";
 
 const obterCompetenciaAtual = () => {
   const hoje = new Date();
   return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
-};
-
-const carregarJson = (chave, padrao) => {
-  try {
-    return JSON.parse(localStorage.getItem(chave) || "null") || padrao;
-  } catch {
-    return padrao;
-  }
 };
 
 const formatarMoeda = (valor) =>
@@ -37,9 +32,9 @@ export default function FechamentoMensal({ navegar }) {
     atividades: atividadeRepository.listar(),
     obras: obraRepository.listar(),
     construtoras: construtoraRepository.listar(),
-    valoresServicos: carregarJson("valoresServicos", {}),
-    valoresPadrao: carregarJson("valoresPadrao", {}),
-    tabelaComercialPadrao: carregarJson("tabelaComercialPadrao", { locacoes: {} }),
+    valoresServicos: valoresServicosRepository.obter({}),
+    valoresPadrao: valoresPadraoRepository.obter({}),
+    tabelaComercialPadrao: tabelaComercialRepository.obter({ locacoes: {} }),
   }));
 
   const fechamento = useMemo(() => {

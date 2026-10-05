@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import { Settings } from "lucide-react";
+import {
+  pecasAncoragemRepository,
+  pecasBalancinhoRepository,
+} from "../repositories/pecasRepository";
 
 export default function Configuracoes() {
   const [balancinhos, setBalancinhos] = useState({});
   const [ancoragens, setAncoragens] = useState({});
 
   useEffect(() => {
-    const padraoB = JSON.parse(localStorage.getItem("pecasBalancinho") || "{}");
-    const padraoA = JSON.parse(localStorage.getItem("pecasAncoragem") || "{}");
+    const padraoB = pecasBalancinhoRepository.obter({});
+    const padraoA = pecasAncoragemRepository.obter({});
 
     setBalancinhos({
       "1": padraoB["1"] || "Conjunto 1m, 2 Travas, 2 Cabos, 2 Motores",
@@ -27,8 +31,8 @@ export default function Configuracoes() {
   }, []);
 
   const salvarMateriais = () => {
-    localStorage.setItem("pecasBalancinho", JSON.stringify(balancinhos));
-    localStorage.setItem("pecasAncoragem", JSON.stringify(ancoragens));
+    pecasBalancinhoRepository.salvar(balancinhos);
+    pecasAncoragemRepository.salvar(ancoragens);
     alert("Materiais salvos com sucesso!");
   };
 

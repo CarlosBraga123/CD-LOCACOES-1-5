@@ -1,5 +1,8 @@
 import { converterMoedaParaNumero, formatarMoeda } from "./moeda";
 import { normalizarTexto, obterObraDaAtividade } from "./obras";
+import { tabelaComercialRepository } from "../repositories/tabelaComercialRepository";
+import { valoresServicosRepository } from "../repositories/valoresServicosRepository";
+import { valoresPadraoRepository } from "../repositories/valoresPadraoRepository";
 
 const normalizarServicoContrato = (valor) =>
   normalizarTexto(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -140,11 +143,7 @@ export const obterDadosContrato = (atividade, obras = [], construtoras = []) => 
 };
 
 const obterTabelaPadrao = () => {
-  try {
-    return JSON.parse(localStorage.getItem("tabelaComercialPadrao") || "null") || { servicos: {}, locacoes: {} };
-  } catch {
-    return { servicos: {}, locacoes: {} };
-  }
+  return tabelaComercialRepository.obter(null) || { servicos: {}, locacoes: {} };
 };
 
 const obterChaveServicoContrato = (atividade, servico) => {
@@ -177,8 +176,8 @@ const obterChaveLocacaoContrato = (atividade) => {
 
 const obterFallbackServicoAntigoContrato = (atividade, servico) => {
   try {
-    const valoresServicos = JSON.parse(localStorage.getItem("valoresServicos") || "{}");
-    const valoresPadrao = JSON.parse(localStorage.getItem("valoresPadrao") || "{}");
+    const valoresServicos = valoresServicosRepository.obter({});
+    const valoresPadrao = valoresPadraoRepository.obter({});
     const chaveAntiga = `${atividade?.equipamento}-${servico}`;
 
     if (valoresServicos[chaveAntiga] !== undefined) return Number(valoresServicos[chaveAntiga] || 0);

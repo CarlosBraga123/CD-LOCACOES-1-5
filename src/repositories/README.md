@@ -1,11 +1,22 @@
 # Repositórios locais
 
-Esta camada centraliza o acesso ao `localStorage` sem alterar o formato dos dados. Nesta fase, `atividades`, `construtoras`, `obras`, `tarefas` e as estruturas patrimoniais continuam sendo armazenadas exclusivamente nas mesmas chaves locais já usadas pelo aplicativo. O `localStorage` ainda é a única fonte operacional e o Supabase não participa desta camada.
+Esta camada centraliza o acesso ao `localStorage` sem alterar chaves, formatos ou regras de negócio. Nesta fase o `localStorage` continua sendo a única fonte operacional. Não há leitura ou escrita no Supabase, IndexedDB, fila, sincronização ou duplicação de persistência.
 
-O `localStorageAdapter` trata leitura e escrita de JSON. Se uma chave não existir ou contiver JSON inválido, a leitura devolve o valor padrão informado e não modifica o conteúdo armazenado.
+## Repositórios disponíveis
 
-Os repositórios de domínio oferecem operações simples sobre listas. Regras operacionais, validações e decisões de interface permanecem nos componentes e utilitários existentes.
+- Coleções: `atividadeRepository`, `construtoraRepository`, `obraRepository` e `tarefaRepository`.
+- Patrimônio: `equipamentoPatrimonioRepository`, `vinculoPatrimonioRepository`, `ajusteConfiguracaoEquipamentoRepository`, `substituicaoEquipamentoRepository` e `controleKitContrapesoRepository`.
+- Comercial: `tabelaComercialRepository`, `valoresServicosRepository` e `valoresPadraoRepository`.
+- Configurações: `pecasBalancinhoRepository`, `pecasAncoragemRepository`, `empresaNomeRepository` e `empresaLogoRepository`.
 
-Os snapshots brutos existem somente para preservar os rollbacks locais que já eram realizados por operações envolvendo múltiplas coleções. Eles não criam transações e não alteram a ordem atual das gravações.
+O `localStorageAdapter` preserva JSON ou texto bruto conforme o contrato histórico de cada chave. Chave ausente ou JSON inválido devolve o padrão informado sem modificar o armazenamento. Os repositórios não mantêm cache: cada leitura consulta novamente o `localStorage`.
 
-Para adicionar outra coleção, crie um módulo com nome de domínio que exporte uma instância de `criarRepositorioListaLocal` configurada com a chave já existente. Os consumidores devem importar esse módulo de domínio, sem acessar a fábrica ou informar chaves genéricas diretamente.
+Os snapshots brutos existem somente para preservar rollbacks locais já usados por operações com múltiplas coleções. Eles não criam transações nem alteram a ordem das gravações.
+
+## Exceções intencionais
+
+- `BackupImportacao.jsx` acessa diretamente todas as chaves do contrato de backup para exportação e restauração fiel.
+- `usuarios` permanece direto por pertencer à autenticação existente.
+- `usuarioLogado`, `atividadeParaLocalizar`, `atividadeParaEditar` e `ultimoBackup` permanecem diretos por serem sessão ou estado transitório.
+
+Regras operacionais, financeiras, patrimoniais e decisões de interface permanecem nos componentes e utilitários existentes. Novos consumidores de um domínio já migrado devem importar o repositório correspondente, sem informar chaves genéricas diretamente.

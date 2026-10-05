@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
+import {
+  empresaLogoRepository,
+  empresaNomeRepository,
+} from "../repositories/empresaRepository";
 
 export default function EmpresaHeader() {
-  const [logo, setLogo] = useState(localStorage.getItem("empresaLogo") || "/logo.png");
-  const [nome, setNome] = useState(localStorage.getItem("empresaNome") || "CD Locações");
+  const [logo, setLogo] = useState(() => empresaLogoRepository.obter("/logo.png") || "/logo.png");
+  const [nome, setNome] = useState(() => empresaNomeRepository.obter("CD Locações") || "CD Locações");
 
   const handleLogoChange = (e) => {
     const file = e.target.files[0];
@@ -10,7 +14,7 @@ export default function EmpresaHeader() {
 
     const reader = new FileReader();
     reader.onload = () => {
-      localStorage.setItem("empresaLogo", reader.result);
+      empresaLogoRepository.salvar(reader.result);
       setLogo(reader.result);
     };
     reader.readAsDataURL(file);
@@ -18,7 +22,7 @@ export default function EmpresaHeader() {
 
   const handleNomeChange = (e) => {
     setNome(e.target.value);
-    localStorage.setItem("empresaNome", e.target.value);
+    empresaNomeRepository.salvar(e.target.value);
   };
 
   return (

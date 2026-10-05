@@ -13,6 +13,8 @@ import { consolidarRelatorioServicos } from "../utils/relatorioServicos";
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
 import { atividadeRepository } from "../repositories/atividadeRepository";
+import { valoresServicosRepository } from "../repositories/valoresServicosRepository";
+import { valoresPadraoRepository } from "../repositories/valoresPadraoRepository";
 
 const obterPeriodoCompetencia = (competencia) => {
   if (!/^\d{4}-\d{2}$/.test(competencia || "")) return { dataInicio: "", dataFim: "" };
@@ -43,8 +45,8 @@ export default function RelatorioServicos({ contextoNavegacao = null }) {
     setAtividades(atividadeRepository.listar());
     setConstrutoras(construtoraRepository.listar());
     setObras(obraRepository.listar());
-    setValoresServicos(JSON.parse(localStorage.getItem("valoresServicos") || "{}"));
-    setValoresPadrao(JSON.parse(localStorage.getItem("valoresPadrao") || "{}"));
+    setValoresServicos(valoresServicosRepository.obter({}));
+    setValoresPadrao(valoresPadraoRepository.obter({}));
   }, []);
 
   const formatarData = (data) => {

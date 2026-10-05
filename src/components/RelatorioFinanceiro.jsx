@@ -6,6 +6,9 @@ import { atividadePertenceObra, normalizarTexto, obterChaveObra, obterObraDaAtiv
 import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
 import { atividadeRepository } from "../repositories/atividadeRepository";
+import { tabelaComercialRepository } from "../repositories/tabelaComercialRepository";
+import { valoresServicosRepository } from "../repositories/valoresServicosRepository";
+import { valoresPadraoRepository } from "../repositories/valoresPadraoRepository";
 
 export default function RelatorioFinanceiro() {
   const [atividades, setAtividades] = useState([]);
@@ -21,14 +24,8 @@ export default function RelatorioFinanceiro() {
     setObras(obraRepository.listar());
   }, []);
 
-  let valoresServicos = {};
-  let valoresPadrao = {};
-  try {
-    valoresServicos = JSON.parse(localStorage.getItem("valoresServicos")) || {};
-    valoresPadrao = JSON.parse(localStorage.getItem("valoresPadrao")) || {};
-  } catch {
-    console.warn("Erro ao ler valores do localStorage");
-  }
+  const valoresServicos = valoresServicosRepository.obter({});
+  const valoresPadrao = valoresPadraoRepository.obter({});
 
   const servicosValidos = ["Instalação", "Deslocamento", "Manutenção", "Ascensão", "Remoção"];
 
@@ -111,7 +108,7 @@ export default function RelatorioFinanceiro() {
 
   const obterTabelasFallbackLocacao = (atividade) => {
     const construtoras = construtoraRepository.listar();
-    const tabelaComercialPadrao = JSON.parse(localStorage.getItem("tabelaComercialPadrao") || "null") || {
+    const tabelaComercialPadrao = tabelaComercialRepository.obter(null) || {
       locacoes: {},
     };
     const obra = obterObraDaAtividade(atividade, obras);

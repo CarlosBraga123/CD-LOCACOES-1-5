@@ -12,6 +12,9 @@ import { construtoraRepository } from "../repositories/construtoraRepository";
 import { obraRepository } from "../repositories/obraRepository";
 import { tarefaRepository } from "../repositories/tarefaRepository";
 import { atividadeRepository } from "../repositories/atividadeRepository";
+import { tabelaComercialRepository } from "../repositories/tabelaComercialRepository";
+import { valoresServicosRepository } from "../repositories/valoresServicosRepository";
+import { valoresPadraoRepository } from "../repositories/valoresPadraoRepository";
 
 const servicosValidos = ["Instalação", "Deslocamento", "Manutenção", "Ascensão", "Remoção"];
 
@@ -35,8 +38,8 @@ export default function Dashboard({ abrirAtividade, navegar }) {
     const todas = atividadeRepository.listar();
     const obrasSalvas = obraRepository.listar();
     const construtorasSalvas = construtoraRepository.listar();
-    const valoresServicos = JSON.parse(localStorage.getItem("valoresServicos") || "{}");
-    const valoresPadrao = JSON.parse(localStorage.getItem("valoresPadrao") || "{}");
+    const valoresServicos = valoresServicosRepository.obter({});
+    const valoresPadrao = valoresPadraoRepository.obter({});
     const registrosPatrimonio = obterRegistrosPatrimonio();
     const equipamentosMestres = obterEquipamentosPatrimonio();
     setObras(obrasSalvas);
@@ -185,7 +188,7 @@ export default function Dashboard({ abrirAtividade, navegar }) {
       const construtora = construtorasSalvas.find(
         (item) => normalizarTexto(item.nome) === normalizarTexto(nomeConstrutora)
       );
-      const tabelaComercialPadrao = JSON.parse(localStorage.getItem("tabelaComercialPadrao") || "null") || {
+      const tabelaComercialPadrao = tabelaComercialRepository.obter(null) || {
         locacoes: {},
       };
 

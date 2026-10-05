@@ -3,6 +3,9 @@ import { CURRENT_SCHEMA_VERSION } from "./contratoDados";
 const lista = (valor) => (Array.isArray(valor) ? valor : []);
 const texto = (valor) => String(valor ?? "").trim();
 const numeroPatrimonio = (valor) => texto(valor).replace(/\s+/g, "");
+const objetoSemAusentes = (valores) => Object.fromEntries(
+  Object.entries(valores).filter(([, valor]) => valor !== undefined && valor !== null && valor !== "")
+);
 const quantidadeAtividade = (atividade) =>
   Math.max(1, Number(atividade?.quantidade) || 1);
 
@@ -176,7 +179,30 @@ export const auditarDadosParaMigracao = (dados = {}, agora = new Date().toISOStr
     if (!idItem) {
       adicionar("ERRO", "REGISTRO_PATRIMONIO_SEM_ID_ITEM", "Registro patrimonial sem idItem.", { indice });
     } else if (!identidades.has(idItem)) {
-      adicionar("AVISO", "VINCULO_PATRIMONIAL_SEM_UNIDADE", "Vínculo administrativo sem unidade reconhecível no conjunto atual.", { idItem });
+      const historico = lista(registro?.historico);
+      const ultimoEvento = historico.at(-1);
+      const eventoComObra = [...historico].reverse().find((evento) => texto(evento?.obraId));
+      const eventoComPatrimonioAnterior = [...historico].reverse().find((evento) =>
+        texto(evento?.numeroPatrimonioAnterior ?? evento?.patrimonioAnterior)
+      );
+      adicionar("AVISO", "VINCULO_PATRIMONIAL_SEM_UNIDADE", "Vínculo administrativo sem unidade reconhecível no conjunto atual.", {
+        idItem,
+        detalhes: objetoSemAusentes({
+          indice,
+          idItem,
+          idEquipamento: registro?.idEquipamento,
+          idItemOrigem: registro?.idItemOrigem,
+          idUnidade: registro?.idUnidade,
+          numeroPatrimonioAtual: registro?.numeroPatrimonioAtual,
+          numeroPatrimonioAnterior:
+            registro?.numeroPatrimonioAnterior ??
+            eventoComPatrimonioAnterior?.numeroPatrimonioAnterior ??
+            eventoComPatrimonioAnterior?.patrimonioAnterior,
+          quantidadeEventosHistorico: historico.length,
+          ultimoEvento: ultimoEvento ? { ...ultimoEvento } : undefined,
+          obraId: registro?.obraId ?? eventoComObra?.obraId,
+        }),
+      });
     }
     lista(registro?.historico).forEach((evento, indiceEvento) => {
       if (!evento?.id || !evento?.tipo || !evento?.data) {
@@ -192,7 +218,7 @@ export const auditarDadosParaMigracao = (dados = {}, agora = new Date().toISOStr
   const situacoesConhecidas = new Set([
     "NO_GALPAO", "LOCADO", "EM_MANUTENCAO", "INDISPONIVEL", "BAIXADO", "SEM_LOCALIZACAO_ATUAL",
   ]);
-  equipamentos.forEach((equipamento) => {
+  equipamentos.forEach((equipamento, indice) => {
     const patrimonio = numeroPatrimonio(equipamento?.numeroPatrimonioAtual);
     if (!patrimonio) {
       adicionar("AVISO", "MESTRE_SEM_PATRIMONIO_ATUAL", "Equipamento mestre sem número patrimonial atual.", {
@@ -216,6 +242,18 @@ export const auditarDadosParaMigracao = (dados = {}, agora = new Date().toISOStr
       adicionar("AVISO", "MESTRE_ORIGEM_NAO_RECONHECIDA", "idItemOrigem do mestre não é reconhecível no conjunto atual.", {
         idEquipamento: equipamento?.idEquipamento ?? null,
         idItemOrigem: origem,
+        detalhes: objetoSemAusentes({
+          indice,
+          idEquipamento: equipamento?.idEquipamento,
+          idItemOrigem: origem,
+          numeroPatrimonioAtual: equipamento?.numeroPatrimonioAtual,
+          equipamento: equipamento?.equipamento,
+          tipoBalancinho: equipamento?.tipoBalancinho,
+          tipoMiniGrua: equipamento?.tipoMiniGrua,
+          situacaoAdministrativa: equipamento?.situacaoAdministrativa,
+          ativo: equipamento?.ativo,
+          dataCadastro: equipamento?.dataCadastro,
+        }),
       });
     }
   });
@@ -279,7 +317,30 @@ export const auditarDadosParaMigracao = (dados = {}, agora = new Date().toISOStr
   if (identidadesLegadas.length) adicionar("INFORMAÇÃO", "IDENTIDADES_LEGADAS_VALIDAS", `${identidadesLegadas.length} identidade(s) legada(s) reconstruível(is).`, { quantidade: identidadesLegadas.length });
   if (atividades.some((item) => item?.numeroPatrimonio !== undefined)) adicionar("INFORMAÇÃO", "NUMERO_PATRIMONIO_SINGULAR", "Há atividades usando numeroPatrimonio singular (compatibilidade legada).");
   if (atividades.some((item) => Array.isArray(item?.numerosPatrimonio))) adicionar("INFORMAÇÃO", "NUMEROS_PATRIMONIO_LEGADO", "Há atividades usando numerosPatrimonio.");
-  if (atividades.some((item) => item?.numeroOsCampo !== undefined && item?.numeroOSCampo !== undefined)) adicionar("AVISO", "CAMPOS_OS_DUPLOS", "Há atividade contendo numeroOsCampo e numeroOSCampo simultaneamente.");
+  const atividadesComCamposOsDuplos = atividades.filter((atividade) =>
+    atividade?.numeroOsCampo !== undefined && atividade?.numeroOSCampo !== undefined
+  );
+  if (atividadesComCamposOsDuplos.length) {
+    const ocorrencias = atividadesComCamposOsDuplos.map((atividade) => objetoSemAusentes({
+      atividadeId: atividade?.id,
+      obraId: atividade?.obraId,
+      obra: atividade?.obra,
+      data:
+        atividade?.dataLiberacao ??
+        atividade?.dataAgendamento ??
+        atividade?.dataCadastro ??
+        atividade?.createdAt,
+      numeroOsCampo: atividade?.numeroOsCampo,
+      numeroOSCampo: atividade?.numeroOSCampo,
+      valoresIguais: texto(atividade?.numeroOsCampo) === texto(atividade?.numeroOSCampo),
+    }));
+    adicionar("AVISO", "CAMPOS_OS_DUPLOS", "Há atividade contendo numeroOsCampo e numeroOSCampo simultaneamente.", {
+      atividadeId: atividadesComCamposOsDuplos[0]?.id ?? null,
+      detalhes: ocorrencias.length === 1
+        ? ocorrencias[0]
+        : { quantidadeOcorrencias: ocorrencias.length, ocorrencias },
+    });
+  }
   if (dados.valoresServicos && Object.keys(dados.valoresServicos).length) adicionar("INFORMAÇÃO", "VALORES_SERVICOS_LEGADO", "A coleção valoresServicos será preservada como fallback legado.");
   if (dados.valoresPadrao && Object.keys(dados.valoresPadrao).length) adicionar("INFORMAÇÃO", "VALORES_PADRAO_LEGADO", "A coleção valoresPadrao será preservada como fallback legado.");
 
@@ -314,6 +375,12 @@ export const auditarDadosParaMigracao = (dados = {}, agora = new Date().toISOStr
 };
 
 export const formatarRelatorioAuditoriaTexto = (relatorio) => {
+  const formatarDetalhes = (detalhes) => Object.entries(detalhes || {}).map(([chave, valor]) => {
+    const textoValor = typeof valor === "object"
+      ? JSON.stringify(valor, null, 2)
+      : String(valor);
+    return `  ${chave}: ${textoValor.replace(/\n/g, "\n  ")}`;
+  });
   const linhas = [
     "AUDITORIA PARA MIGRAÇÃO",
     `Gerado em: ${relatorio.generatedAt}`,
@@ -324,7 +391,10 @@ export const formatarRelatorioAuditoriaTexto = (relatorio) => {
     `Avisos: ${relatorio.totais.avisos}`,
     `Informações: ${relatorio.totais.informacoes}`,
     "",
-    ...relatorio.problemas.map((item) => `[${item.nivel}] ${item.codigo}: ${item.mensagem}`),
+    ...relatorio.problemas.flatMap((item) => [
+      `[${item.nivel}] ${item.codigo}: ${item.mensagem}`,
+      ...formatarDetalhes(item.detalhes),
+    ]),
   ];
   return linhas.join("\n");
 };

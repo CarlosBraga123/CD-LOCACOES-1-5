@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { Fragment, useRef, useState, useEffect } from "react";
 import { DatabaseBackup } from "lucide-react";
 import {
   criarBackupVersionado,
@@ -214,9 +214,25 @@ export default function BackupImportacao() {
             {relatorioAuditoria.problemas.length > 0 && (
               <div className="max-h-80 space-y-1 overflow-y-auto rounded border p-2">
                 {relatorioAuditoria.problemas.map((item, indice) => (
-                  <p key={`${item.codigo}-${indice}`}>
-                    <strong>[{item.nivel}] {item.codigo}</strong>: {item.mensagem}
-                  </p>
+                  <div key={`${item.codigo}-${indice}`} className="rounded border-b p-2 last:border-b-0">
+                    <p><strong>[{item.nivel}] {item.codigo}</strong>: {item.mensagem}</p>
+                    {item.detalhes && (
+                      <dl className="mt-1 grid gap-x-3 text-xs sm:grid-cols-[max-content_1fr]">
+                        {Object.entries(item.detalhes).map(([chave, valor]) => (
+                          <Fragment key={chave}>
+                            <dt className="font-semibold">{chave}:</dt>
+                            <dd className="min-w-0 break-words">
+                              {typeof valor === "object" ? (
+                                <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs">
+                                  {JSON.stringify(valor, null, 2)}
+                                </pre>
+                              ) : String(valor)}
+                            </dd>
+                          </Fragment>
+                        ))}
+                      </dl>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

@@ -5,7 +5,7 @@ import {
   criarBackupVersionado,
   validarEstruturaBackup,
 } from "../contratoDados";
-import { auditarDadosParaMigracao } from "../auditoriaMigracao";
+import { auditarDadosParaMigracao, formatarRelatorioAuditoriaTexto } from "../auditoriaMigracao";
 
 const base = (alteracoes = {}) => ({
   atividades: [],
@@ -151,5 +151,91 @@ describe("contrato e auditoria para migração", () => {
       kitsContrapeso: 0,
     });
     expect(relatorio.totais.erros).toBe(0);
+  });
+
+  it("detalha vínculo patrimonial sem unidade reconhecida", () => {
+    const relatorio = auditarDadosParaMigracao(base({
+      patrimonioEquipamentos: [{
+        idItem: "item-perdido",
+        numeroPatrimonioAtual: "0140",
+        historico: [{ id: "h1", tipo: "VINCULO", data: "2026-09-01", obraId: "obra-1", numeroPatrimonioAnterior: "0139" }],
+      }],
+    }));
+    const problema = relatorio.problemas.find((item) => item.codigo === "VINCULO_PATRIMONIAL_SEM_UNIDADE");
+    expect(problema.detalhes).toMatchObject({
+      indice: 0,
+      idItem: "item-perdido",
+      numeroPatrimonioAtual: "0140",
+      numeroPatrimonioAnterior: "0139",
+      quantidadeEventosHistorico: 1,
+      obraId: "obra-1",
+      ultimoEvento: { id: "h1" },
+    });
+  });
+
+  it("detalha mestre com origem não reconhecida", () => {
+    const relatorio = auditarDadosParaMigracao(base({
+      equipamentosPatrimonio: [{
+        idEquipamento: "mestre-1",
+        idItemOrigem: "item-inexistente",
+        numeroPatrimonioAtual: "0141",
+        equipamento: "Balancinho Elétrico",
+        tipoBalancinho: "Elétrico",
+        situacaoAdministrativa: "LOCADO",
+        ativo: true,
+        dataCadastro: "2026-08-10",
+      }],
+    }));
+    const problema = relatorio.problemas.find((item) => item.codigo === "MESTRE_ORIGEM_NAO_RECONHECIDA");
+    expect(problema.detalhes).toMatchObject({
+      indice: 0,
+      idEquipamento: "mestre-1",
+      idItemOrigem: "item-inexistente",
+      numeroPatrimonioAtual: "0141",
+      equipamento: "Balancinho Elétrico",
+      situacaoAdministrativa: "LOCADO",
+      ativo: true,
+    });
+  });
+
+  it("detalha campos duplicados de OS e informa se os valores são iguais", () => {
+    const relatorio = auditarDadosParaMigracao(base({
+      atividades: [{
+        id: "atividade-os",
+        obraId: "obra-1",
+        obra: "Infinity",
+        dataLiberacao: "2026-09-20",
+        numeroOsCampo: "0125",
+        numeroOSCampo: "0126",
+      }],
+    }));
+    const problema = relatorio.problemas.find((item) => item.codigo === "CAMPOS_OS_DUPLOS");
+    expect(problema.detalhes).toEqual({
+      atividadeId: "atividade-os",
+      obraId: "obra-1",
+      obra: "Infinity",
+      data: "2026-09-20",
+      numeroOsCampo: "0125",
+      numeroOSCampo: "0126",
+      valoresIguais: false,
+    });
+  });
+
+  it("mantém detalhes estruturados no JSON e legíveis no TXT", () => {
+    const relatorio = auditarDadosParaMigracao(base({
+      patrimonioEquipamentos: [{
+        idItem: "item-perdido",
+        numeroPatrimonioAtual: "0140",
+        historico: [{ id: "h1", tipo: "VINCULO", data: "2026-09-01" }],
+      }],
+    }));
+    const json = JSON.parse(JSON.stringify(relatorio));
+    const problema = json.problemas.find((item) => item.codigo === "VINCULO_PATRIMONIAL_SEM_UNIDADE");
+    expect(problema.detalhes.ultimoEvento).toEqual({ id: "h1", tipo: "VINCULO", data: "2026-09-01" });
+
+    const txt = formatarRelatorioAuditoriaTexto(relatorio);
+    expect(txt).toContain("idItem: item-perdido");
+    expect(txt).toContain('"id": "h1"');
+    expect(txt).not.toContain("[object Object]");
   });
 });

@@ -1,6 +1,6 @@
 # Estrutura Supabase — Fase 2
 
-Esta pasta contém somente a proposta inicial de schema para revisão. A migration não foi executada e o aplicativo continua usando exclusivamente o `localStorage`.
+Esta pasta contém o schema inicial e a documentação da preparação controlada da primeira carga. O aplicativo continua usando exclusivamente o `localStorage` como fonte operacional nesta fase.
 
 ## O que a migration cria
 
@@ -23,12 +23,18 @@ A precedência continua sendo responsabilidade da aplicação: valor congelado d
 
 RLS é habilitado em todas as tabelas, mas nenhuma política é criada. Sem políticas, os papéis `anon` e `authenticated` não têm acesso às linhas. Políticas por organização dependem da futura adoção de Supabase Auth e de uma associação explícita entre usuário e organização. Uma futura importação administrativa deverá ocorrer em ambiente confiável; `service_role` nunca deve ir para o frontend.
 
+## Importador inicial offline
+
+O preparador reutilizável fica em `scripts/supabase/prepare-initial-import.mjs`. Ele recebe o caminho de um backup como argumento, valida e transforma os dados localmente e gera os artefatos derivados em `supabase/imports/`.
+
+Todo o conteúdo de `supabase/imports/` é local e ignorado pelo Git, pois pode conter dados operacionais. O preparador não possui credenciais, não conecta ao Supabase e não executa SQL. A eventual execução do SQL gerado é uma etapa manual e controlada, separada da preparação.
+
 ## O que não é criado
 
 - Conexão do aplicativo ou credenciais.
 - Dados reais ou organização inicial.
 - Usuários ou substituição do login atual por Supabase Auth.
-- Importador, sincronização, outbox ou `processed_mutations`.
+- Sincronização, outbox ou `processed_mutations`.
 - Realtime/publicação.
 - Tabelas materializadas para Dashboard, relatórios, fechamento ou períodos financeiros.
 

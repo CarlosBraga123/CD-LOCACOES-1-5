@@ -16,6 +16,7 @@ import Usuarios from "./components/Usuarios";
 import Login from "./components/Login";
 import ListaDeTarefas from "./components/ListaDeTarefas";
 import ControlePatrimonios from "./components/ControlePatrimonios";
+import DiagnosticoSupabase from "./components/DiagnosticoSupabase";
 import {
   BadgeDollarSign,
   Building2,
@@ -29,6 +30,7 @@ import {
   Menu,
   PackageSearch,
   Settings,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 
@@ -83,6 +85,7 @@ export default function App() {
       case "tabelacomercial": return "Tabela Comercial";
       case "usuarios": return "Usuários";
       case "tarefas": return "Lista de Tarefas";
+      case "diagnosticosupabase": return "Diagnóstico Supabase";
       default: return "CD Locações";
     }
   };
@@ -105,6 +108,7 @@ export default function App() {
       case "tabelacomercial": return <TabelaComercial />;
       case "usuarios": return <Usuarios />;
       case "tarefas": return <ListaDeTarefas usuario={usuarioLogado?.nome || "Usuário"} />;
+      case "diagnosticosupabase": return <DiagnosticoSupabase />;
       default: return <div className="p-4">Página não encontrada</div>;
     }
   };
@@ -164,6 +168,7 @@ export default function App() {
               <button onClick={() => { setSelectedPage("usuarios"); setMenuAberto(false); }} className="flex items-center gap-2 text-left hover:text-blue-600"><Users size={20} aria-hidden="true" />Usuários</button>
               <button onClick={() => { setSelectedPage("tabelacomercial"); setMenuAberto(false); }} className="flex items-center gap-2 text-left hover:text-blue-600"><BadgeDollarSign size={20} aria-hidden="true" />Tabela Comercial</button>
               <button onClick={() => { setSelectedPage("configuracoes"); setMenuAberto(false); }} className="flex items-center gap-2 text-left hover:text-blue-600"><Settings size={20} aria-hidden="true" />Configurações</button>
+              <button onClick={() => navegar("diagnosticosupabase")} className="flex items-center gap-2 text-left text-amber-700 hover:text-amber-900"><ShieldCheck size={20} aria-hidden="true" />Diagnóstico Supabase</button>
             </>
           )}
           <button

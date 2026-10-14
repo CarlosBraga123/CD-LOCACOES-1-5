@@ -1,48 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React,{ useEffect, useMemo, useState } from "react";
+import { useLeituraDev } from "../data/LeituraDevContext";
 import { useAuth } from "../auth/AuthContext";
-import { supabase } from "../supabase";
-import { criarAtividadeSupabaseRepository } from "../repositories/atividadeRepository";
 import AtividadeResumoCard from "./AtividadeResumoCard";
 import CadastroAtividadeRemota from "./CadastroAtividadeRemota";
-import { criarTransporteCadastroRpc } from "../repositories/atividadeSupabaseRepository";
 import { ordenarAtividadesRemotas } from "../repositories/ordenacaoAtividadesRemotas";
 
 // Consulta do módulo existente; nenhum cadastro paralelo ou cópia para localStorage.
 export default function AtividadesRemotas({ contextoNavegacao }) {
   const auth = useAuth();
-  const context = useRef(auth);
-  context.current = auth;
-  const repository = useMemo(() => criarAtividadeSupabaseRepository(supabase, { contextoAtual: () => context.current, transporteCadastro: criarTransporteCadastroRpc(supabase) }), []);
-  const [snapshot, setSnapshot] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [updated, setUpdated] = useState("");
-  const [busca, setBusca] = useState("");
-  const [obraId, setObraId] = useState("");
-  const [limit, setLimit] = useState(50);
-  const request = useRef(0);
-  const abort = useRef(null);
-  async function atualizar({preservarSnapshot=false}={}) {
-    const id = ++request.current;
-    abort.current?.abort();
-    abort.current = new AbortController();
-    setLoading(true); setError("");
-    try {
-      const result = await repository.listarAtualizado({ signal: abort.current.signal });
-      if (id !== request.current) return;
-      setSnapshot(result); setUpdated(new Date().toLocaleTimeString("pt-BR")); setLimit(50);
-      return true;
-    } catch {
-      if (id !== request.current) return;
-      if (!preservarSnapshot) {setSnapshot(null); setUpdated("");}
-      setError("Não foi possível carregar as atividades do Supabase DEV. Verifique sessão, acesso e conexão. Os dados locais não foram alterados.");
-      return false;
-    } finally { if (id === request.current) setLoading(false); }
-  }
-  useEffect(() => {
-    atualizar();
-    return () => { request.current += 1; abort.current?.abort(); };
-  }, [repository, auth.session?.user?.id]);
+  const {repository,snapshot,loading,error,updated,revision,atualizar,authorized,scopeKey} = useLeituraDev();
+  const [busca,setBusca]=useState("");
+  const [obraId,setObraId]=useState("");
+  const [limit,setLimit]=useState(50);
+  useEffect(() => {if(authorized && !snapshot) atualizar();}, [scopeKey]);
+  useEffect(() => {setLimit(50);},[revision]);
   useEffect(() => {
     setBusca(contextoNavegacao?.atividadeId ? String(contextoNavegacao.atividadeId) : "");
   }, [contextoNavegacao?.atividadeId]);
@@ -59,7 +30,7 @@ export default function AtividadesRemotas({ contextoNavegacao }) {
       if (!await atualizar({preservarSnapshot:true})) throw new Error("Lista indisponível");
     }}/>}
     {snapshot && <>
-      <p role="status">{snapshot.atividades.length} atividades carregadas · Atualização: {updated}</p>
+      <p role="status">{snapshot.atividades.length} atividades carregadas · Atualização: {updated ? new Date(updated).toLocaleTimeString("pt-BR") : ""}</p>
       <div className="my-3 flex flex-wrap gap-3">
         <label>Busca<input className="ml-2 rounded border p-2" value={busca} onChange={(e) => { setBusca(e.target.value); setLimit(50); }} /></label>
         <label>Obra<select className="ml-2 rounded border p-2" value={obraId} onChange={(e) => { setObraId(e.target.value); setLimit(50); }}><option value="">Todas</option>{snapshot.obras.map((site) => <option key={site.id} value={site.id}>{site.name || site.id}</option>)}</select></label>

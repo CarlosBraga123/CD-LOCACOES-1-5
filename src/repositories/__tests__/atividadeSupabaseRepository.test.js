@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { criarAtividadeSupabaseRepository, criarTransporteCadastroRpc, mapearAtividadesRemotas, prepararCadastroAgendado } from "../atividadeSupabaseRepository";
 import { calcularEquipamentosAtivosDaObra } from "../../utils/equipamentosAtivos";
+import {criarLeituraCompartilhadaDev} from '../leituraCompartilhadaDev';
 const org = "cd-locacoes", id = "88000000-0000-4000-8000-000000000001";
 const catalog = { construtoras: [{ organization_id: org, id: "c" }], obras: [{ organization_id: org, id: "s", constructor_id: "c" }], equipamentos: [{ organization_id: org, id: "e", active: true, equipment_type: "Balancinho", balancinho_type: "Eletrico", current_patrimony_number: "001" }] };
 const form = { obraId: "s", equipamento: "Balancinho", servico: "Instalação", tipoBalancinho: "Eletrico", quantidade: 1, dataAgendamento: "2026-10-13", itensEquipamentos: [{ idEquipamento: "e", numeroPatrimonio: "001" }] };
@@ -21,6 +22,17 @@ function fake({ rows = [{ organization_id: org, id: "old", service_type: "Instal
   return { client, calls, store, context, repo: criarAtividadeSupabaseRepository(client, { contextoAtual: () => context }) };
 }
 describe("fonte remota de Atividades", () => {
+  it('leitura compartilhada valida todas as páginas duas vezes, incluindo o último UUID',async()=>{
+    const rows=Array.from({length:884},(_,i)=>({organization_id:org,id:`id-${i}`,scheduled_date:'2026-10-14'}));
+    const f=fake({rows});const shared=criarLeituraCompartilhadaDev(f.repo,()=>f.context);
+    expect(await shared.atualizar()).toBe(true);expect(shared.getState().snapshot.atividades).toHaveLength(884);
+    expect(f.calls.filter(c=>c.table==='activities').map(c=>c.start)).toEqual([0,200,400,600,800,0,200,400,600,800]);
+  });
+  it('mudança concorrente observada entre passagens não publica coleção parcial',async()=>{
+    const f=fake();const read=f.repo.listarAtualizado;let n=0;
+    const repository={listarAtualizado:async options=>{const result=await read(options);if(++n===1)f.store.activities.push({organization_id:org,id:'concurrent'});return result;}};
+    const shared=criarLeituraCompartilhadaDev(repository,()=>f.context);expect(await shared.atualizar()).toBe(false);expect(shared.getState().snapshot).toBeNull();
+  });
   it.each(['', null, undefined])('preserva campo não aplicável do catálogo sem transformar vazio em null: %s', value => {
     const c=clone(catalog); c.equipamentos[0].mini_crane_type=value;
     const command=prepararCadastroAgendado(form,c,id);

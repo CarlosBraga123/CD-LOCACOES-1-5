@@ -88,7 +88,7 @@ export default function App() {
   const renderContent = () => {
     if (!podeAcessarPagina(auth.membership, selectedPage)) return <p role="alert" className="p-6">Acesso indisponível para este perfil. Os cadastros locais não concedem autorização Supabase.</p>;
     switch (selectedPage) {
-      case "dashboard": return <Dashboard abrirAtividade={abrirAtividade} navegar={navegar} />;
+      case "dashboard": return <><p className="px-4 text-amber-800">Fonte do Dashboard: Local legado deste navegador. Indicadores e totais ainda não sincronizados com o Supabase DEV.</p><Dashboard abrirAtividade={abrirAtividade} navegar={navegar} /></>;
       case "construtorasobras": return <ConstrutorasObras navegar={navegar} abrirAtividade={abrirAtividade} contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
       case "controlepatrimonios": return <ControlePatrimonios />;
       case "atividades": return <Atividades contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
@@ -184,7 +184,7 @@ export default function App() {
           <h1 className="text-center font-semibold text-lg">{renderTitle()}</h1>
         </div>
         <div className="sm:hidden h-16" />
-        <div className="border-b border-amber-300 bg-amber-50 p-3 text-sm">DESENVOLVIMENTO · {auth.membership.organization_id} · {usuarioLogado.tipo} · Atividades têm fonte explícita. Demais módulos locais, ainda não sincronizados.</div>
+        <div className="border-b border-amber-300 bg-amber-50 p-3 text-sm">DESENVOLVIMENTO · {auth.membership.organization_id} · {usuarioLogado.tipo} · Atividades e Agenda têm fonte explícita. Demais módulos locais, ainda não sincronizados.</div>
         {auth.membership.role === "cliente" ? <DiagnosticoSupabase /> : renderContent()}
       </main>
     </div>

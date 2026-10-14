@@ -16,6 +16,7 @@ import { ptBR } from "date-fns/locale";
 import { obterObraDaAtividade } from "../utils/obras";
 import { obraRepository } from "../repositories/obraRepository";
 import { atividadeRepository } from "../repositories/atividadeRepository";
+import AgendaRemota from "./AgendaRemota";
 
 const logoURL = "/CD LOCACOES.png";
 
@@ -37,12 +38,26 @@ type Obra = {
 };
 
 export default function Agenda() {
+  const [fonte,setFonte]=useState("supabase-dev");
+  return <>
+    <div className="flex flex-wrap gap-3 border-b p-4">
+      <label>Fonte da Agenda <select className="ml-2 rounded border p-2" value={fonte} onChange={e=>setFonte(e.target.value)}>
+        <option value="supabase-dev">Supabase DEV — somente leitura</option>
+        <option value="local">Local legado — não sincronizado</option>
+      </select></label>
+      {fonte==="local" && <p className="text-amber-800">Fonte: Local legado deste navegador, não sincronizada.</p>}
+    </div>
+    {fonte==="local" ? <AgendaConteudo/> : <AgendaRemota Calendario={AgendaConteudo}/>}
+  </>;
+}
+
+export function AgendaConteudo({dados=null}: {dados?: {atividades:Atividade[],obras:Obra[]}|null}) {
   const [modo, setModo] = useState("semana");
   const [referencia, setReferencia] = useState(new Date());
   const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(null);
 
-  const atividades: Atividade[] = atividadeRepository.listar();
-  const obras: Obra[] = obraRepository.listar();
+  const atividades: Atividade[] = dados ? dados.atividades : atividadeRepository.listar();
+  const obras: Obra[] = dados ? dados.obras : obraRepository.listar();
 
   const inicioSemana = startOfWeek(referencia, { weekStartsOn: 1 });
   const diasDaSemana = Array.from({ length: 7 }, (_, i) => addDays(inicioSemana, i));

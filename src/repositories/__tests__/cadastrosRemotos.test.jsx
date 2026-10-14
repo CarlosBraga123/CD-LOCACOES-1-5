@@ -1,0 +1,33 @@
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {describe,it,expect,vi,afterEach} from 'vitest';
+import {adaptarCadastrosRemotos,CAMPOS_CONSTRUTORA,CAMPOS_OBRA,CAMPOS_CONTATO} from '../cadastrosRemotos';
+import {Conteudo} from '../../components/ConstrutorasObrasRemotas';
+import {ConstrutorasObrasLocal} from '../../components/ConstrutorasObras';
+import {localStorageAdapter} from '../localStorageAdapter';
+import {readFileSync} from 'node:fs';
+const org='cd-locacoes';
+const row=(id,fields)=>({organization_id:org,id,...Object.fromEntries(Object.values(fields).map(k=>[k,`valor-${k}`]))});
+const fixture=()=>({atividades:[],construtoras:[{...row('c',CAMPOS_CONSTRUTORA),active:false}],obras:[{...row('s',CAMPOS_OBRA),constructor_id:'c',separate_delivery_address:false}],contatosObras:[{...row('ct',CAMPOS_CONTATO),construction_site_id:'s',position:0,is_primary:false,active:true}],tabelasComerciais:[{organization_id:org,id:'t',scope_type:'CONSTRUCTION_SITE',scope_id:'s',origin:'construtora',version:2,base_version:1,constructor_id:'c',services:{instalacao:0},rentals:{mensal:100},source_updated_at:'2026-10-14'}]});
+const html=(overrides={})=>renderToStaticMarkup(<Conteudo leitura={{authorized:true,snapshot:fixture(),scopeKey:'a',atualizar:vi.fn(),...overrides}}/>);
+const tela=(s,estadoInicial={})=>renderToStaticMarkup(<ConstrutorasObrasLocal dadosRemotos={{...adaptarCadastrosRemotos(s),atividades:s.atividades}} estadoInicial={estadoInicial}/>);
+afterEach(()=>vi.restoreAllMocks());
+describe('cadastros remotos completos',()=>{
+  it('transforma todos os campos sem perder IDs, falsos ou valores zero',()=>{
+    const s=fixture(),d=adaptarCadastrosRemotos(s);
+    for(const [local,sql] of Object.entries(CAMPOS_CONSTRUTORA))expect(d.construtoras[0][local]).toBe(s.construtoras[0][sql]);
+    for(const [local,sql] of Object.entries(CAMPOS_OBRA))expect(d.obras[0][local]).toBe(s.obras[0][sql]);
+    for(const [local,sql] of Object.entries(CAMPOS_CONTATO))expect(d.obras[0].contatos[0][local]).toBe(s.contatosObras[0][sql]);
+    expect(d.obras[0]).toMatchObject({id:'s',construtoraId:'c',enderecoEntregaDiferente:false,tabelaComercial:{servicos:{instalacao:0},origem:'construtora',versao:2,versaoBase:1}});
+  });
+  it('não recalcula herança nem fabrica uma tabela ausente',()=>{const s=fixture(),before=JSON.stringify(s);const d=adaptarCadastrosRemotos(s);expect(d.construtoras[0].tabelaComercial).toBeNull();expect(JSON.stringify(s)).toBe(before);});
+  it('associa nomes duplicados somente por ID na apresentação original',()=>{const s=fixture();s.construtoras.push({...s.construtoras[0],id:'outro'});expect(tela(s,{visualizacao:'gestao',construtoraId:'outro'})).toContain('Nenhuma obra vinculada a esta construtora.');expect(tela(s,{visualizacao:'gestao',construtoraId:'c'})).toContain('valor-city');});
+  it('sinaliza vínculo órfão sem reconciliar por nome',()=>{const s=fixture();s.obras[0].constructor_id='orfao';const d=adaptarCadastrosRemotos(s);expect(d.obras[0].construtora).toBeNull();expect(d.avisos).toHaveLength(1);});
+  it('não escolhe entre tabelas comerciais ambíguas',()=>{const s=fixture();s.tabelasComerciais.push({...s.tabelasComerciais[0],id:'t2'});const d=adaptarCadastrosRemotos(s);expect(d.obras[0].tabelaComercial).toBeNull();expect(d.avisos).toHaveLength(1);});
+  it('preserva ordem e permite mesmo ID de contato em obras diferentes',()=>{const s=fixture();s.obras.push({...s.obras[0],id:'s2'});s.contatosObras.push({...s.contatosObras[0],construction_site_id:'s2'});expect(adaptarCadastrosRemotos(s).obras.map(o=>o.contatos.length)).toEqual([1,1]);});
+  it.each(['organization','duplicate','orphan-contact','missing'])('falha segura para catálogo %s',kind=>{const s=fixture();if(kind==='organization')s.obras[0].organization_id='outra';if(kind==='duplicate')s.obras.push(s.obras[0]);if(kind==='orphan-contact')s.contatosObras[0].construction_site_id='orfao';if(kind==='missing')delete s.contatosObras;expect(()=>adaptarCadastrosRemotos(s)).toThrow();});
+  it('mantém busca sem acentos, agrupamento e ordem original por saldos',()=>{const s=fixture();s.construtoras[0].name='Árvore';s.obras[0].name='Z';s.obras.push({...s.obras[0],id:'s2',name:'A'});const output=tela(s,{visualizacao:'gestao',construtoraId:'c',busca:'arvore'});expect(output.indexOf('>A</p>')).toBeLessThan(output.indexOf('>Z</p>'));expect(tela(s,{visualizacao:'gestao',busca:'inexistente'})).toContain('Nenhuma construtora ou obra encontrada.');});
+  it('reutiliza campos, contatos e tabela originais sem acessar armazenamento local',()=>{const read=vi.spyOn(localStorageAdapter,'lerJson').mockImplementation(()=>{throw new Error('local proibido');});const s=fixture(),d=adaptarCadastrosRemotos(s);const output=tela(s,{visualizacao:'gestao',construtoraConsulta:d.construtoras[0],obraConsulta:d.obras[0]});expect(output).toContain('valor-financial_email');expect(output).toContain('valor-crea');expect(output).toContain('instalacao');expect(output).toContain('R$');expect(output).toContain('<fieldset disabled=""');expect(output).not.toContain('raw_payload');expect(read).not.toHaveBeenCalled();});
+  it.each([{authorized:false},{loading:true},{error:'Conexão indisponível'},{snapshot:null}])('não exibe catálogo antigo em bloqueio/carregamento/erro',state=>{expect(html(state)).not.toContain('valor-financial_email');});
+  it('somente leitura: nenhuma ação de cadastro/edição ou navegação operacional',()=>{const output=html();expect(output).not.toContain('Nova Atividade');expect(output).not.toContain('Salvar');expect(output).not.toContain('<form');const source=readFileSync('src/components/ConstrutorasObrasRemotas.jsx','utf8');expect(source).not.toMatch(/Repository|localStorage|setModalPatrimonio|abrirAtividade/);});
+});

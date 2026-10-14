@@ -1,5 +1,45 @@
 # Equivalência funcional Local legado → Supabase DEV
 
+## Aceite da Fase 2.1 para commit local — 14/10/2026
+
+O responsável homologou no computador os sete pontos da interface compartilhada: abas/cards, organização das obras, painéis cadastrais, contatos, tabelas comerciais, bloqueios remotos e preservação do modo Local. O recorte de leitura cadastral está aprovado para commit local com a mensagem “Integra leitura cadastral ao Supabase DEV”. A homologação no iPhone desta revisão permanece separada da homologação já concluída da Fase 1.
+
+Pendência expressa: atividades recentes nos detalhes da obra ainda não estão integradas ao DEV. Manter o aviso de indisponibilidade e não habilitar essa consulta neste commit. Escrita cadastral, conferência patrimonial individual e demais regiões operacionais não integradas continuam bloqueadas. Esta aprovação não autoriza migrations, escrita remota, push ou deploy.
+
+## Fase 2.1 — Apresentação original compartilhada (14/10/2026)
+
+Revisão posterior à leitura cadastral: o responsável confirmou carregamento, dados, tabelas, busca/ordenação, bloqueios e retorno ao Local. Essa homologação confirma a leitura anterior, mas a aparência paralela foi rejeitada. Esta revisão remove a interface independente de ConstrutorasObrasRemotas: o arquivo agora cuida apenas de sessão, fonte, atualização, adaptação e mensagens de falha. Local e DEV montam a mesma apresentação em ConstrutorasObras.jsx.
+
+Reutilizados diretamente: abas e classes responsivas; cards e cabeçalhos da Gestão; agrupamento por construtora e expansão de obra; busca/ordenação; resumo de obra; painéis e campos originais de construtora/obra; contatos; seletor e cartões cadastrais dos Detalhes da Obra; grades de serviços/locações e formatação monetária. A aba inicial volta a ser Equipamentos Ativos, como no original. O saldo aritmético original usa somente atividades remotas no DEV; conferência física continua não homologada.
+
+O parâmetro interno dadosRemotos seleciona coleções explícitas e ativa somente leitura. Sem ele, mantém repositórios, persistência, eventos de recarga, edição, herança e cálculos Local. No DEV, não registra os eventos de recarga Local, não chama os helpers de unidades/configurações patrimoniais nem monta modal patrimonial. Gravações têm guard adicional; botões operacionais estão desabilitados. Consultar cadastro abre os painéis originais com campos desabilitados, Salvar bloqueado e os valores comerciais efetivamente armazenados, sem completar chaves ausentes com preços padrão. Campos/situações desconhecidos não recebem valores inventados.
+
+Diferenças deliberadas: aviso de fonte/somente leitura; botões de escrita bloqueados; ação Consultar cadastro e título de consulta; regiões de atividades, conferência, equipamentos físicos e documentos não integrados indicadas como indisponíveis. Na aba Equipamentos Ativos, os mesmos cards/saldos operacionais podem ser vistos, mas conferência e unidades instaladas não são fabricadas. Nos detalhes, preservados os cartões cadastrais, enquanto regiões operacionais usam avisos no lugar de dados locais. Não foram habilitadas novas operações remotas.
+
+Validação: 685 testes offline aprovados, 167 SQL ignorados, zero reprovados. Oito regressões específicas da apresentação comparam o HTML da Gestão Local/DEV (igual salvo disabled), cards/expansão, grades responsivas, contatos, consultas comerciais, bloqueio de Salvar, ausência de preços fabricados e proibição de leitura/escrita local nas três abas. Testes anteriores de adaptação foram ajustados para exercitar a apresentação original em vez do filtro duplicado removido. Build e git diff --check aprovados; avisos de bundle/Browserslist/PostCSS permanecem.
+
+Conferência no navegador em servidor exclusivo 127.0.0.1, dados sintéticos e armazenamento substituído por memória: comparadas Gestão Local/DEV; abertura real de Consultar cadastro e Salvar desabilitado; busca com resultado/sem resultado; consulta da obra a 390×844 e detalhes cadastrais a 768×1024, sem overflow horizontal; painel da construtora a 1280×900. Essa conferência responsiva não substitui nova homologação do responsável no iPhone físico e com o catálogo real. Nenhuma conexão Supabase foi realizada nesta revisão. Servidor/aba temporários encerrados após a conferência.
+
+Arquivos desta revisão: ConstrutorasObras.jsx, ConstrutorasObrasRemotas.jsx, cadastrosRemotos.test.jsx, novo construtorasObrasApresentacao.test.jsx e esta matriz. Adaptador, repositórios locais, migrations, RPCs e demais alterações pendentes preservados. Sem commit, push, deploy ou escrita remota. Parecer: APTO para nova validação visual local da interface compartilhada.
+
+## Fase 2.1 — Leitura cadastral compartilhada (14/10/2026)
+
+Fonte explícita Local/Supabase DEV em Construtoras e Obras, inicialmente Local. O componente Local anterior foi mantido com seu corpo integral, repositórios e callbacks; somente o invólucro escolhe qual ramo montar. Trocar a fonte desmonta o ramo anterior. Não há cópia de cadastros para localStorage, escrita remota ou migração automática.
+
+O contrato compartilhado foi ampliado com todos os campos cadastrais normalizados de constructors/construction_sites, site_contacts e metadados de commercial_tables. Colunas explícitas, sem raw_payload. Mantém autorização Admin/Gestor, organização DEV, paginação 200, duas leituras completas comparadas e invalidação por sessão/requisição do serviço existente. Contatos são ordenados/paginados por construction_site_id e id, respeitando sua identidade composta; a mesma chave de contato pode existir em obras diferentes.
+
+cadastrosRemotos.js adapta campos portugueses, preserva IDs, booleanos falsos, valores zero, ordem de contatos, origem/versões e valores comerciais armazenados. Associa somente por ID. Nomes iguais não são reconciliados. Referências de obra sem construtora comprovada são sinalizadas e exibidas separadamente; contatos órfãos, identidade duplicada ou outra organização bloqueiam o catálogo. Tabela comercial ambígua é sinalizada sem escolher uma. Tabela ausente é indisponível: não gerar cópia padrão nem reinterpretar herança durante leitura.
+
+Gestão mantém pesquisa pelos mesmos campos e normalização sem acentos, construtoras em ordem alfabética e obras pela função original de situação/saldo/nome. Saldo usa exclusivamente atividades do snapshot remoto e o cálculo original obterTotalEquipamentosAtivos, sem afirmar ocupação física individual. Expansão mostra campos, contatos e tabelas em cartões de leitura, sem formulários de edição. Detalhes da Obra disponibiliza esse recorte cadastral e declara indisponíveis serviços, documentos e conferência patrimonial. Equipamentos Ativos fica explicitamente indisponível: seus helpers originais incluem getters e ações locais que não foram homologados para o remoto.
+
+Criar construtora/obra, editar, excluir, nova atividade a partir desta tela, conferência, substituição, ajustes e demais gravações não são oferecidos no ramo DEV. Erro, carregamento ou sessão inválida ocultam o catálogo. O conteúdo remoto é remontado por identidade de sessão, além do descarte do snapshot pelo provider.
+
+Validação offline: 677 testes aprovados, 167 SQL ignorados, zero reprovados; inclui 18 novos testes de transformação completa, vínculos por ID, nomes duplicados, contatos compostos/paginação, tabelas ambíguas, campos ausentes, organização, busca/ordem e renderização sem leitura local. Os testes existentes continuam cobrindo paginação de atividades, falhas de rede, sessão, mudança de identidade e respostas antigas. Testes SQL ignorados não comprovam RLS remoto. Build aprovado com avisos existentes de bundle/Browserslist/PostCSS.
+
+Não houve conexão remota nesta implementação. A última tentativa da auditoria falhou OAuth antes de retornar dados; não presumir que schema/RLS ou contagens tenham sido reconfirmados. Homologação visual e leitura real deste cadastro permanecem pendentes. O responsável informou homologação PC/iPhone da Fase 1 publicada (Agenda/Dashboard); isso não homologa a nova tela cadastral.
+
+Parecer: APTO para validação visual local da leitura; não habilitar escrita cadastral. Próxima etapa: conferir campos e comportamento no navegador com sessão DEV e comparar com catálogo remoto quando o acesso estiver disponível. Nenhuma migration necessária ou executada nesta fase. Não houve commit, push, deploy ou alteração de dados remotos; alterações preexistentes preservadas.
+
 Data-base: 14/10/2026. Revisão 4. Código-base: 9ffacaf33049cfa2c9c3eff62ec12f0d41b00fa3 e alterações locais preservadas. Projeto de destino: ldamjmjcgjmujiougcrs, organização cd-locacoes.
 
 Este documento é o acompanhamento obrigatório das próximas fases. Cada entrega deve atualizar as linhas afetadas com commit, migration, evidência de teste, data e limitações. Não marcar um módulo inteiro equivalente porque apenas sua tabela foi importada ou uma RPC passou em testes.
@@ -29,10 +69,10 @@ O servidor 130002 reconcilia ocupação pelo histórico e usa locks em seis tabe
 | AUTH-01 | Login, sessão, logout e bloqueio por membership | E no recorte Auth | Teste contínuo de revogação/troca de usuário; não usar perfil local como autoridade | src/auth/authSession.js, AuthContext.jsx |
 | AUTH-02 | Perfis e telas | P/D | Admin/Gestor no fluxo remoto; UI não oferece todos os fluxos Cliente/Funcionário. Definir matriz por operação, não copiar o antigo admin simulado | src/App.jsx, src/auth/authSession.js |
 | AUTH-03 | Cadastro local de usuários | L/N | Usuarios.jsx não é tela ativa; não confundir lista local com administração Supabase Auth | src/components/Usuarios.jsx, App.jsx |
-| CAD-01 | Listar/buscar construtoras e obras | P | Catálogo remoto básico no formulário; tela gerencial ainda local | ConstrutorasObras.jsx, formularioAtividadeRemoto.js |
+| CAD-01 | Listar/buscar construtoras e obras | E no recorte de leitura cadastral; módulo P | Fonte explícita Local/DEV; adaptador por ID e apresentação original compartilhada; leitura e sete pontos visuais homologados pelo responsável no PC. iPhone desta revisão pendente; atividades recentes nos detalhes indisponíveis | ConstrutorasObras.jsx, ConstrutorasObrasRemotas.jsx, cadastrosRemotos.js |
 | CAD-02 | Criar/editar/excluir construtora | L/N | Comando individual, conflitos, referências e exclusões com mesma proteção do Local | ConstrutorasObras.jsx, construtoraRepository.js |
 | CAD-03 | Criar/editar/excluir obra e vínculo de construtora | L/N | Preservar IDs, vínculos históricos e bloqueios; não reconciliar nomes silenciosamente | ConstrutorasObras.jsx, obraRepository.js |
-| CAD-04 | Endereços, CNPJ, contatos, telefone/WhatsApp | L/P | Tabelas podem conter importação; catálogo atual não carrega o conjunto necessário a telas/OS/contratos | ConstrutorasObras.jsx, site_contacts |
+| CAD-04 | Endereços, CNPJ, contatos, telefone/WhatsApp | P | Leitura cadastral completa e contatos por obra implementados, sem raw_payload. OS/contratos e gravação continuam não integrados | cadastrosRemotos.js, site_contacts |
 | COM-01 | Tabela padrão, por construtora e por obra | P/L | Leitura para prévia remota; tela de manutenção e gravação ainda locais | TabelaComercial.jsx, previaComercialRemota.js |
 | COM-02 | Prioridade obra → construtora → padrão e fallback legado | P | Prévia reproduz prioridade sem ler fallback local; cobrir casos legados e ausência/ambiguidade sem inventar preço | FormularioAtividades.jsx, financeiroAtividades.js |
 | COM-03 | Edição manual de valores e totais | L/N | Bloqueada no remoto; preservar mesmas condições e validação antes de habilitar | FormularioAtividades.jsx |

@@ -184,7 +184,7 @@ export default function App() {
           <h1 className="text-center font-semibold text-lg">{renderTitle()}</h1>
         </div>
         <div className="sm:hidden h-16" />
-        <div className="border-b border-amber-300 bg-amber-50 p-3 text-sm">DESENVOLVIMENTO · {auth.membership.organization_id} · {usuarioLogado.tipo} · Atividades, Agenda e Dashboard têm fonte explícita. Demais módulos locais, ainda não sincronizados.</div>
+        <div className="border-b border-amber-300 bg-amber-50 p-3 text-sm">DESENVOLVIMENTO · {auth.membership.organization_id} · {usuarioLogado.tipo} · Atividades, Agenda, Dashboard e Construtoras e Obras têm fonte explícita. Demais módulos locais, ainda não sincronizados.</div>
         {auth.membership.role === "cliente" ? <DiagnosticoSupabase /> : renderContent()}
       </main>
     </div>

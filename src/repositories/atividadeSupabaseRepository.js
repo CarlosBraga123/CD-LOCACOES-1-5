@@ -132,13 +132,16 @@ export function criarAtividadeSupabaseRepository(client, { contextoAtual, transp
   async function listarTabela(table, columns, signal) {
     const results = [], ids = new Set();
     for (let offset = 0; ; offset += 200) {
-      let query = client.from(table).select(columns).eq("organization_id", DEV_ORGANIZATION).order("id", { ascending: true }).range(offset, offset + 199);
+      let query = client.from(table).select(columns).eq("organization_id", DEV_ORGANIZATION);
+      if(table === 'site_contacts') query=query.order('construction_site_id',{ascending:true});
+      query=query.order("id", { ascending: true }).range(offset, offset + 199);
       if (signal) query = query.abortSignal(signal);
       const { data, error } = await query;
       if (error || !Array.isArray(data)) fail("LEITURA", "Leitura remota indisponível. Nenhum dado local foi usado como substituto.");
       for (const row of data) {
-        if (row.organization_id !== DEV_ORGANIZATION || ids.has(row.id)) fail("INTEGRIDADE", "Leitura remota divergente. Atualize novamente.");
-        ids.add(row.id); results.push(row);
+        const key=table==='site_contacts' ? JSON.stringify([row.construction_site_id,row.id]) : row.id;
+        if (row.organization_id !== DEV_ORGANIZATION || ids.has(key)) fail("INTEGRIDADE", "Leitura remota divergente. Atualize novamente.");
+        ids.add(key); results.push(row);
       }
       if (data.length < 200) return results;
       if (offset >= 100000) fail("LIMITE", "Leitura excedeu o limite seguro.");
@@ -148,17 +151,18 @@ export function criarAtividadeSupabaseRepository(client, { contextoAtual, transp
     fonte: "supabase-dev",
     async listarAtualizado({ signal } = {}) {
       const context = await autorizar();
-      const [rows, items, construtoras, obras, equipamentos, vinculos, ajustes, substituicoes, tabelasComerciais] = await Promise.all([
+      const [rows, items, construtoras, obras, equipamentos, vinculos, ajustes, substituicoes, tabelasComerciais, contatosObras] = await Promise.all([
         listarTabela("activities", COLUNAS_ATIVIDADE, signal), listarTabela("activity_equipment_items", COLUNAS_ITEM, signal),
-        listarTabela("constructors", "organization_id,id,name,active", signal), listarTabela("construction_sites", "organization_id,id,name,constructor_id", signal),
+        listarTabela("constructors", colunasCadastro(CAMPOS_CONSTRUTORA), signal), listarTabela("construction_sites", colunasCadastro(CAMPOS_OBRA), signal),
         listarTabela("physical_equipment", "organization_id,id,item_origin_id,current_patrimony_number,equipment_type,balancinho_type,mini_crane_type,administrative_status,active", signal),
         listarTabela("unit_patrimony_bindings", "organization_id,id,physical_equipment_id,item_origin_id,unit_id,current_patrimony_number", signal),
         listarTabela("equipment_config_adjustments", "organization_id,id,item_id,physical_equipment_id,unit_id,construction_site_id,adjustment_date,size,anchoring,uses_counterweight,source_created_at", signal),
         listarTabela("equipment_substitutions", "organization_id,id,event_date,source_equipment_id,destination_equipment_id,source_unit_id,destination_unit_id", signal),
-        listarTabela("commercial_tables", "organization_id,id,scope_type,scope_id,services,rentals", signal),
+        listarTabela("commercial_tables", "organization_id,id,scope_type,scope_id,origin,version,base_version,constructor_id,source_updated_at,services,rentals", signal),
+        listarTabela('site_contacts', colunasCadastro(CAMPOS_CONTATO)+',construction_site_id,position', signal),
       ]);
       if (contextoAtual()?.session?.user?.id !== context.session.user.id || contextoAtual()?.status !== "authorized") fail("SESSAO", "A sessão mudou durante a leitura.");
-      return { atividades: mapearAtividadesRemotas(rows, items), construtoras, obras, equipamentos, vinculos, ajustes, substituicoes, tabelasComerciais };
+      return { atividades: mapearAtividadesRemotas(rows, items), construtoras, obras, equipamentos, vinculos, ajustes, substituicoes, tabelasComerciais, contatosObras };
     },
     async cadastrarIndividual(comando) {
       if (!transporteCadastro) fail("DEPENDENCIA", "Gravação bloqueada: falta autorizar e instalar a operação atômica no DEV.");
@@ -177,3 +181,4 @@ export function criarAtividadeSupabaseRepository(client, { contextoAtual, transp
     },
   };
 }
+import { CAMPOS_CONSTRUTORA, CAMPOS_OBRA, CAMPOS_CONTATO, colunasCadastro } from './cadastrosRemotos';

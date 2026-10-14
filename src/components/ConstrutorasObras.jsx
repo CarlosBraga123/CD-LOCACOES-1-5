@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ConstrutorasObrasRemotas from "./ConstrutorasObrasRemotas";
 import { CheckCircle2, CircleAlert, CircleDot } from "lucide-react";
 import { normalizarTexto, atividadePertenceObra } from "../utils/obras";
 import {
@@ -94,7 +95,7 @@ const montarUnidadesParaConferencia = (itens, registros, ajustes) =>
 const normalizarBusca = (valor) =>
   normalizarTexto(valor).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-const situacaoObra = (obra) => texto(obra?.situacao) || "Ativa";
+const situacaoObra = (obra, ausente = "Ativa") => texto(obra?.situacao) || ausente;
 
 const montarEndereco = (item) =>
   [
@@ -122,8 +123,8 @@ const obraPertenceConstrutora = (obra, construtora) => {
 const buscarEm = (termos, busca) =>
   termos.some((termo) => normalizarBusca(termo).includes(busca));
 
-const obterConstrutoraDaObra = (obra, construtoras) =>
-  construtoras.find((construtora) => obraPertenceConstrutora(obra, construtora));
+const obterConstrutoraDaObra = (obra, construtoras, somenteLeitura = false) =>
+  construtoras.find((construtora) => somenteLeitura ? obra?.construtoraId === construtora.id : obraPertenceConstrutora(obra, construtora));
 
 const obterChaveConstrutoraCadastro = (construtora) =>
   construtora?.id
@@ -212,28 +213,41 @@ const classeFormularioDestacado =
   "outline outline-2 outline-blue-500 ring-4 ring-blue-200 bg-blue-50 transition-[outline,box-shadow,background-color] duration-200";
 
 export default function ConstrutorasObras({
+  ...props
+}) {
+  const [fonte, setFonte] = useState("local");
+  return <><div className="flex flex-wrap gap-3 border-b p-4"><label>Fonte de Construtoras e Obras <select className="ml-2 rounded border p-2" value={fonte} onChange={e=>setFonte(e.target.value)}><option value="local">Local</option><option value="supabase-dev">Supabase DEV — somente leitura</option></select></label></div>{fonte === "local" ? <ConstrutorasObrasLocal {...props}/> : <ConstrutorasObrasRemotas/>}</>;
+}
+
+export function ConstrutorasObrasLocal({
   navegar,
   abrirAtividade,
   contextoNavegacao,
   limparContextoNavegacao,
+  dadosRemotos = null,
+  estadoInicial = {},
 }) {
-  const [construtoras, setConstrutoras] = useState([]);
-  const [obras, setObras] = useState([]);
-  const [atividades, setAtividades] = useState([]);
+  const somenteLeitura = dadosRemotos !== null;
+  const [construtorasLocais, setConstrutoras] = useState([]);
+  const [obrasLocais, setObras] = useState([]);
+  const [atividadesLocais, setAtividades] = useState([]);
+  const construtoras = somenteLeitura ? dadosRemotos.construtoras : construtorasLocais;
+  const obras = somenteLeitura ? dadosRemotos.obras : obrasLocais;
+  const atividades = somenteLeitura ? dadosRemotos.atividades : atividadesLocais;
   const [registrosPatrimonio, setRegistrosPatrimonio] = useState([]);
   const [modalPatrimonio, setModalPatrimonio] = useState(null);
-  const [visualizacao, setVisualizacao] = useState("ativos");
-  const [busca, setBusca] = useState("");
-  const [construtoraAbertaId, setConstrutoraAbertaId] = useState(null);
-  const [obraAbertaId, setObraAbertaId] = useState(null);
+  const [visualizacao, setVisualizacao] = useState(estadoInicial.visualizacao || "ativos");
+  const [busca, setBusca] = useState(estadoInicial.busca || "");
+  const [construtoraAbertaId, setConstrutoraAbertaId] = useState(estadoInicial.construtoraId || null);
+  const [obraAbertaId, setObraAbertaId] = useState(estadoInicial.obraId || null);
   const [obraAtivaAbertaId, setObraAtivaAbertaId] = useState(null);
   const [dadosCarregados, setDadosCarregados] = useState(false);
-  const [modoFormularioConstrutora, setModoFormularioConstrutora] = useState(null);
+  const [modoFormularioConstrutora, setModoFormularioConstrutora] = useState(estadoInicial.construtoraConsulta ? "consulta" : null);
   const [chaveConstrutoraEmEdicao, setChaveConstrutoraEmEdicao] = useState(null);
   const [formularioConstrutora, setFormularioConstrutora] = useState(
-    criarFormularioConstrutora()
+    somenteLeitura && estadoInicial.construtoraConsulta ? estadoInicial.construtoraConsulta : criarFormularioConstrutora(estadoInicial.construtoraConsulta)
   );
-  const [tabelaConstrutoraEditada, setTabelaConstrutoraEditada] = useState(null);
+  const [tabelaConstrutoraEditada, setTabelaConstrutoraEditada] = useState(estadoInicial.construtoraConsulta?.tabelaComercial || null);
   const [camposTabelaEmEdicao, setCamposTabelaEmEdicao] = useState({});
   const [destacarFormularioConstrutora, setDestacarFormularioConstrutora] =
     useState(false);
@@ -241,9 +255,9 @@ export default function ConstrutorasObras({
   const deveRolarFormularioConstrutoraRef = useRef(false);
   const timeoutDestaqueConstrutoraRef = useRef(null);
   const contextoConstrutoraConsumidoRef = useRef(null);
-  const [modoFormularioObra, setModoFormularioObra] = useState(null);
+  const [modoFormularioObra, setModoFormularioObra] = useState(estadoInicial.obraConsulta ? "consulta" : null);
   const [chaveObraEmEdicao, setChaveObraEmEdicao] = useState(null);
-  const [formularioObra, setFormularioObra] = useState(criarFormularioObra());
+  const [formularioObra, setFormularioObra] = useState(somenteLeitura && estadoInicial.obraConsulta ? estadoInicial.obraConsulta : criarFormularioObra(estadoInicial.obraConsulta));
   const [camposTabelaObraEmEdicao, setCamposTabelaObraEmEdicao] = useState({});
   const [tabelaObraAlteradaManual, setTabelaObraAlteradaManual] = useState(false);
   const [destacarFormularioObra, setDestacarFormularioObra] = useState(false);
@@ -251,19 +265,21 @@ export default function ConstrutorasObras({
   const deveRolarFormularioObraRef = useRef(false);
   const timeoutDestaqueObraRef = useRef(null);
   const [obraDetalhesSelecionadaChave, setObraDetalhesSelecionadaChave] =
-    useState(null);
+    useState(estadoInicial.detalheId ? `id:${estadoInicial.detalheId}` : null);
   const detalhesObraTopoRef = useRef(null);
   const deveRolarDetalhesObraRef = useRef(false);
 
   const carregarDados = useCallback(() => {
+    if (somenteLeitura) return;
     setConstrutoras(construtoraRepository.listar());
     setObras(obraRepository.listar());
     setAtividades(atividadeRepository.listar());
     setRegistrosPatrimonio(obterRegistrosPatrimonio());
     setDadosCarregados(true);
-  }, []);
+  }, [somenteLeitura]);
 
   useEffect(() => {
+    if (somenteLeitura) return;
     carregarDados();
 
     const atualizarAoVoltar = () => {
@@ -277,7 +293,7 @@ export default function ConstrutorasObras({
       window.removeEventListener("focus", carregarDados);
       document.removeEventListener("visibilitychange", atualizarAoVoltar);
     };
-  }, [carregarDados]);
+  }, [carregarDados, somenteLeitura]);
 
   const buscaNormalizada = normalizarBusca(busca);
 
@@ -286,7 +302,7 @@ export default function ConstrutorasObras({
       .map((obra) => {
         const resumo = obterResumoEquipamentosAtivos(obra, atividades);
         const totalAtivos = obterTotalEquipamentosAtivos(obra, atividades);
-        const construtora = obterConstrutoraDaObra(obra, construtoras);
+        const construtora = obterConstrutoraDaObra(obra, construtoras, somenteLeitura);
 
         return {
           obra,
@@ -332,7 +348,7 @@ export default function ConstrutorasObras({
 
   const todosEquipamentosAtivos = useMemo(
     () =>
-      obras.flatMap((obra) =>
+      somenteLeitura ? [] : obras.flatMap((obra) =>
         obterUnidadesEquipamentosAtivos(obra, atividades, registrosPatrimonio).map(
           (item) => ({
             ...item,
@@ -345,7 +361,7 @@ export default function ConstrutorasObras({
           })
         )
       ),
-    [atividades, construtoras, obras, registrosPatrimonio]
+    [atividades, construtoras, obras, registrosPatrimonio, somenteLeitura]
   );
 
   const dadosConstrutoras = useMemo(() => {
@@ -353,7 +369,7 @@ export default function ConstrutorasObras({
 
     return construtorasOrdenadas
       .map((construtora) => {
-        const obrasDaConstrutora = obras.filter((obra) => obraPertenceConstrutora(obra, construtora));
+        const obrasDaConstrutora = obras.filter((obra) => somenteLeitura ? obra.construtoraId === construtora.id : obraPertenceConstrutora(obra, construtora));
         const obrasOrdenadas = ordenarObrasPorEquipamentosAtivos(
           obrasDaConstrutora,
           (obra) => obterTotalEquipamentosAtivos(obra, atividades)
@@ -422,6 +438,7 @@ export default function ConstrutorasObras({
   );
 
   const obrasAtivasDetalhes = useMemo(() => {
+    if (somenteLeitura) return [];
     const obrasComTotais = obras
       .map((obra) => {
         const resumo = obterResumoUnidadesEquipamentosAtivos(obra, atividades);
@@ -445,17 +462,17 @@ export default function ConstrutorasObras({
       if (a.totalAtivos !== b.totalAtivos) return b.totalAtivos - a.totalAtivos;
       return compararTextoPtBr(a.obra?.nome, b.obra?.nome);
     });
-  }, [atividades, construtoras, obras]);
+  }, [atividades, construtoras, obras, somenteLeitura]);
 
   const unidadesAtivasObraDetalhes = useMemo(
     () =>
-      obraDetalhesSelecionada
+      !somenteLeitura && obraDetalhesSelecionada
         ? obterUnidadesEquipamentosAtivos(
             obraDetalhesSelecionada,
             atividades
           )
         : [],
-    [atividades, obraDetalhesSelecionada]
+    [atividades, obraDetalhesSelecionada, somenteLeitura]
   );
 
   const alternarConstrutora = (id) => {
@@ -471,9 +488,10 @@ export default function ConstrutorasObras({
     setObraAtivaAbertaId((atual) => (String(atual) === String(id) ? null : id));
   };
 
-  const navegarPara = (pagina, contexto = null) => navegar?.(pagina, contexto);
+  const navegarPara = (pagina, contexto = null) => !somenteLeitura && navegar?.(pagina, contexto);
 
   const criarCopiaTabelaComercialPadrao = () => {
+    if (somenteLeitura) return null;
     const tabelaPadraoSalva = tabelaComercialRepository.obter(null);
 
     return copiarTabelaComercialPadrao(
@@ -482,7 +500,27 @@ export default function ConstrutorasObras({
     );
   };
 
+  // Consulta reutiliza os painéis originais, sem normalizar preços ou herdar dados locais.
+  const consultarConstrutora = (construtora) => {
+    if (!somenteLeitura) return;
+    setModoFormularioObra(null);
+    setFormularioConstrutora({...construtora});
+    setTabelaConstrutoraEditada(construtora.tabelaComercial);
+    setModoFormularioConstrutora("consulta");
+    deveRolarFormularioConstrutoraRef.current = true;
+    setDestacarFormularioConstrutora(true);
+  };
+  const consultarObra = (obra) => {
+    if (!somenteLeitura) return;
+    setModoFormularioConstrutora(null);
+    setFormularioObra({...obra,contatos:obra.contatos.map(c=>({...c}))});
+    setModoFormularioObra("consulta");
+    deveRolarFormularioObraRef.current = true;
+    setDestacarFormularioObra(true);
+  };
+
   const abrirFormularioNovaConstrutora = () => {
+    if (somenteLeitura) return;
     setVisualizacao("gestao");
     setModoFormularioObra(null);
     setModoFormularioConstrutora("nova");
@@ -495,6 +533,7 @@ export default function ConstrutorasObras({
   };
 
   const editarConstrutora = (construtora) => {
+    if (somenteLeitura) return;
     if (!construtora) return;
 
     setVisualizacao("gestao");
@@ -529,6 +568,7 @@ export default function ConstrutorasObras({
   };
 
   const salvarNovaConstrutora = () => {
+    if (somenteLeitura) return;
     const dados = prepararConstrutoraParaSalvar(formularioConstrutora);
     if (!dados.nome) return;
 
@@ -546,6 +586,7 @@ export default function ConstrutorasObras({
   };
 
   const salvarConstrutoraEditada = () => {
+    if (somenteLeitura) return;
     const dados = prepararConstrutoraParaSalvar(formularioConstrutora);
     if (!dados.nome) return;
 
@@ -580,6 +621,7 @@ export default function ConstrutorasObras({
   };
 
   const excluirConstrutora = (construtora) => {
+    if (somenteLeitura) return;
     const possuiObras = obras.some((obra) =>
       obraPertenceConstrutora(obra, construtora)
     );
@@ -831,6 +873,7 @@ export default function ConstrutorasObras({
     );
 
   const criarTabelaComercialHerdada = (construtora) => {
+    if (somenteLeitura) return null;
     const tabelaPadraoSalva = tabelaComercialRepository.obter(null);
 
     return herdarTabelaComercialDaConstrutora({
@@ -856,6 +899,7 @@ export default function ConstrutorasObras({
   };
 
   const abrirNovaObra = (construtora = null) => {
+    if (somenteLeitura) return;
     setVisualizacao("gestao");
     setModoFormularioConstrutora(null);
     setModoFormularioObra("nova");
@@ -881,6 +925,7 @@ export default function ConstrutorasObras({
   };
 
   const editarObra = (obra) => {
+    if (somenteLeitura) return;
     if (!obra) return;
 
     const construtora = obterConstrutoraDaObra(obra, construtoras);
@@ -925,6 +970,7 @@ export default function ConstrutorasObras({
   };
 
   const salvarNovaObra = () => {
+    if (somenteLeitura) return;
     const dados = prepararObraParaSalvar(formularioObra);
     if (!dados.nome || !dados.construtora) return;
 
@@ -949,6 +995,7 @@ export default function ConstrutorasObras({
   };
 
   const salvarObraEditada = () => {
+    if (somenteLeitura) return;
     const dados = prepararObraParaSalvar(formularioObra);
     if (!dados.nome || !dados.construtora) return;
 
@@ -978,6 +1025,7 @@ export default function ConstrutorasObras({
   };
 
   const excluirObra = (obra) => {
+    if (somenteLeitura) return;
     if (!window.confirm("Deseja realmente excluir esta obra?")) return;
 
     const chave = obterChaveObraCadastro(obra);
@@ -1162,6 +1210,7 @@ export default function ConstrutorasObras({
   };
 
   const abrirAtividadeRecente = (atividade) => {
+    if (somenteLeitura) return;
     if (!atividade?.id || !abrirAtividade) return;
     abrirAtividade(atividade.id);
   };
@@ -1205,7 +1254,7 @@ export default function ConstrutorasObras({
 
         <div className="space-y-2 text-sm">
           <h3 className="font-semibold">Atividades recentes</h3>
-          {recentes.length === 0 ? (
+          {somenteLeitura ? <p className="text-gray-500">Consulta de atividades indisponível nesta tela DEV.</p> : recentes.length === 0 ? (
             <p className="text-gray-500">Nenhuma atividade encontrada.</p>
           ) : (
             recentes.map((atividade, indice) => (
@@ -1233,6 +1282,7 @@ export default function ConstrutorasObras({
         <div className={`flex flex-col gap-2 ${compacto ? "" : "lg:col-span-3 sm:flex-row"}`}>
           <button
             type="button"
+            disabled={somenteLeitura}
             onClick={() => abrirNovaAtividade(obra, construtora)}
             className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm"
           >
@@ -1240,6 +1290,7 @@ export default function ConstrutorasObras({
           </button>
           <button
             type="button"
+            disabled={somenteLeitura}
             onClick={() => editarObra(obra)}
             className="rounded-xl border bg-white px-4 py-2 text-blue-600 shadow-sm"
           >
@@ -1258,6 +1309,7 @@ export default function ConstrutorasObras({
   };
 
   const abrirConferenciaIndividual = (obra, construtora, itens, indice) => {
+    if (somenteLeitura) return;
     const item = itens[indice];
     if (!item) return;
     setModalPatrimonio({
@@ -1286,7 +1338,7 @@ export default function ConstrutorasObras({
   const renderEquipamentosAtivos = () => (
     <div className="space-y-2">
       <div className="flex justify-end">
-        <button type="button" onClick={() => setModalPatrimonio({ modo: "consulta" })} className="rounded-lg border bg-white px-3 py-2 text-sm text-blue-700 shadow-sm">
+        <button type="button" disabled={somenteLeitura} onClick={() => !somenteLeitura && setModalPatrimonio({ modo: "consulta" })} className="rounded-lg border bg-white px-3 py-2 text-sm text-blue-700 shadow-sm">
           Consultar patrimônio
         </button>
       </div>
@@ -1315,8 +1367,8 @@ export default function ConstrutorasObras({
           {obrasAtivas.map(({ obra, construtora, resumo, totalAtivos, categorias }) => {
             const aberta = String(obraAtivaAbertaId) === String(obra.id || obra.nome);
             const categoriasVisiveis = categorias.filter((categoria) => categoria.valor > 0);
-            const ajustesConfiguracao = obterAjustesConfiguracaoEquipamentos();
-            const unidadesInstaladas = montarUnidadesParaConferencia(
+            const ajustesConfiguracao = somenteLeitura ? [] : obterAjustesConfiguracaoEquipamentos();
+            const unidadesInstaladas = somenteLeitura ? [] : montarUnidadesParaConferencia(
               obterUnidadesEquipamentosAtivos(
                 obra,
                 atividades,
@@ -1356,6 +1408,7 @@ export default function ConstrutorasObras({
                 {aberta && (
                   <div className="px-3 pb-3">
                     {renderDetalheObra({ obra, construtora, resumo, compacto: true })}
+                    {somenteLeitura ? <section className="mt-3 rounded-xl border bg-gray-50 p-3"><h4 className="font-bold">Conferência da obra</h4><p className="text-sm text-gray-500">Conferência, equipamentos instalados e atualização patrimonial indisponíveis no DEV.</p></section> : <>
                     <section className="mt-3 rounded-xl border bg-gray-50 p-3">
                       <div className="flex items-end justify-between gap-3">
                         <div><h4 className="font-bold">Conferência da obra</h4><p className="text-sm text-gray-600">{equipamentosConferidos} de {unidadesInstaladas.length} equipamentos conferidos</p></div>
@@ -1388,6 +1441,7 @@ export default function ConstrutorasObras({
                     >
                       Atualizar patrimônios
                     </button>
+                    </>}
                   </div>
                 )}
               </article>
@@ -1451,7 +1505,7 @@ export default function ConstrutorasObras({
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={contato.ativo !== false}
+                      checked={somenteLeitura ? contato.ativo === true : contato.ativo !== false}
                       onChange={(event) =>
                         atualizarContatoObra(
                           indice,
@@ -1508,7 +1562,7 @@ export default function ConstrutorasObras({
         <label className="block text-sm font-medium">
           Situacao
           <select
-            value={formularioObra.situacao || "Ativa"}
+            value={formularioObra.situacao || (somenteLeitura ? "" : "Ativa")}
             onChange={(event) =>
               setFormularioObra({
                 ...formularioObra,
@@ -1517,6 +1571,8 @@ export default function ConstrutorasObras({
             }
             className="mt-1 w-full rounded border p-2"
           >
+            {somenteLeitura && !formularioObra.situacao && <option value="">Não informada</option>}
+            {somenteLeitura && formularioObra.situacao && !situacoesObra.includes(formularioObra.situacao) && <option value={formularioObra.situacao}>{formularioObra.situacao}</option>}
             {situacoesObra.map((situacao) => (
               <option key={situacao} value={situacao}>
                 {situacao}
@@ -1614,11 +1670,12 @@ export default function ConstrutorasObras({
 
   const renderCamposTabelaObra = (grupo) => {
     const construtora = obterConstrutoraPorNome(formularioObra.construtora);
-    const tabela = normalizarTabelaComercial(
+    const tabela = somenteLeitura ? formularioObra.tabelaComercial : normalizarTabelaComercial(
       formularioObra.tabelaComercial ||
         criarTabelaComercialHerdada(construtora)
     );
 
+    if (!tabela?.[grupo]) return <p className="text-sm text-gray-500">Tabela comercial indisponível. Nenhum valor local foi utilizado.</p>;
     return (
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {Object.entries(tabela[grupo]).map(([chave, valor]) => {
@@ -1628,11 +1685,12 @@ export default function ConstrutorasObras({
             <div key={chave}>
               <label className="block text-sm font-medium">{chave}</label>
               <input
+                disabled={somenteLeitura}
                 type="text"
                 inputMode="decimal"
                 value={
                   camposTabelaObraEmEdicao[chaveCampo] ??
-                  formatarMoeda(valor)
+                  (somenteLeitura && (valor == null || valor === "") ? "Não informado" : formatarMoeda(valor))
                 }
                 onFocus={() =>
                   iniciarEdicaoValorTabelaObra(grupo, chave, valor)
@@ -1671,7 +1729,7 @@ export default function ConstrutorasObras({
       >
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-lg font-semibold">
-            {modoFormularioObra === "nova" ? "Nova Obra" : "Editar Obra"}
+            {modoFormularioObra === "consulta" ? "Consultar Obra — somente leitura" : modoFormularioObra === "nova" ? "Nova Obra" : "Editar Obra"}
           </h3>
           <button
             type="button"
@@ -1682,7 +1740,7 @@ export default function ConstrutorasObras({
           </button>
         </div>
 
-        {renderFormularioObra()}
+        {somenteLeitura ? <fieldset disabled className="min-w-0">{renderFormularioObra()}</fieldset> : renderFormularioObra()}
 
         <div className="space-y-4 rounded border bg-gray-50 p-3">
           <h3 className="font-semibold">Tabela Comercial da Obra</h3>
@@ -1699,6 +1757,7 @@ export default function ConstrutorasObras({
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
+            disabled={somenteLeitura}
             onClick={
               modoFormularioObra === "nova"
                 ? salvarNovaObra
@@ -1723,11 +1782,12 @@ export default function ConstrutorasObras({
   };
 
   const renderCamposTabelaConstrutora = (grupo) => {
-    const tabela = normalizarTabelaComercial(
+    const tabela = somenteLeitura ? tabelaConstrutoraEditada : normalizarTabelaComercial(
       tabelaConstrutoraEditada || criarCopiaTabelaComercialPadrao(),
       { incluirVersaoPadrao: true }
     );
 
+    if (!tabela?.[grupo]) return <p className="text-sm text-gray-500">Tabela comercial indisponível. Nenhum valor local foi utilizado.</p>;
     return (
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {Object.entries(tabela[grupo]).map(([chave, valor]) => {
@@ -1737,10 +1797,11 @@ export default function ConstrutorasObras({
             <div key={chave}>
               <label className="block text-sm font-medium">{chave}</label>
               <input
+                disabled={somenteLeitura}
                 type="text"
                 inputMode="decimal"
                 value={
-                  camposTabelaEmEdicao[chaveCampo] ?? formatarMoeda(valor)
+                  camposTabelaEmEdicao[chaveCampo] ?? (somenteLeitura && (valor == null || valor === "") ? "Não informado" : formatarMoeda(valor))
                 }
                 onFocus={() => iniciarEdicaoValorTabela(grupo, chave, valor)}
                 onChange={(event) =>
@@ -1768,7 +1829,7 @@ export default function ConstrutorasObras({
         <label className="flex items-center gap-2 text-sm font-medium md:col-span-2">
           <input
             type="checkbox"
-            checked={formularioConstrutora.ativa !== false}
+            checked={somenteLeitura ? formularioConstrutora.ativa === true : formularioConstrutora.ativa !== false}
             onChange={(event) =>
               setFormularioConstrutora({
                 ...formularioConstrutora,
@@ -1778,6 +1839,7 @@ export default function ConstrutorasObras({
           />
           Construtora ativa
         </label>
+        {somenteLeitura && formularioConstrutora.ativa == null && <p className="text-sm text-gray-500">Situação da construtora não informada.</p>}
       </Bloco>
 
       <Bloco titulo="Contato principal">
@@ -1837,7 +1899,7 @@ export default function ConstrutorasObras({
       >
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-lg font-semibold">
-            {modoFormularioConstrutora === "nova"
+            {modoFormularioConstrutora === "consulta" ? "Consultar Construtora — somente leitura" : modoFormularioConstrutora === "nova"
               ? "Nova Construtora"
               : "Editar Construtora"}
           </h3>
@@ -1850,9 +1912,9 @@ export default function ConstrutorasObras({
           </button>
         </div>
 
-        {renderFormularioConstrutora()}
+        {somenteLeitura ? <fieldset disabled className="min-w-0">{renderFormularioConstrutora()}</fieldset> : renderFormularioConstrutora()}
 
-        {modoFormularioConstrutora === "editar" && (
+        {(modoFormularioConstrutora === "editar" || modoFormularioConstrutora === "consulta") && (
           <div className="space-y-4 rounded border bg-gray-50 p-3">
             <h3 className="font-semibold">Tabela Comercial da Construtora</h3>
             <div className="space-y-2">
@@ -1869,6 +1931,7 @@ export default function ConstrutorasObras({
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
+            disabled={somenteLeitura}
             onClick={
               modoFormularioConstrutora === "nova"
                 ? salvarNovaConstrutora
@@ -1895,9 +1958,9 @@ export default function ConstrutorasObras({
   const renderDetalhesCompletosObra = () => {
     const obra = obraDetalhesSelecionada;
     const construtora = obra
-      ? obterConstrutoraDaObra(obra, construtoras)
+      ? obterConstrutoraDaObra(obra, construtoras, somenteLeitura)
       : null;
-    const resumoAtivos = obra
+    const resumoAtivos = obra && !somenteLeitura
       ? obterResumoUnidadesEquipamentosAtivos(obra, atividades)
       : [];
     const resumoBalancinhos = resumoAtivos.filter(
@@ -1989,7 +2052,7 @@ export default function ConstrutorasObras({
         </div>
 
         {!obra ? (
-          obrasAtivasDetalhes.length === 0 ? (
+          somenteLeitura ? <p className="rounded-xl border bg-gray-50 p-4 text-sm text-gray-500">Selecione uma obra para consultar os dados cadastrais. Ocupação patrimonial individual indisponível no DEV.</p> : obrasAtivasDetalhes.length === 0 ? (
             <p className="rounded-xl border bg-gray-50 p-4 text-sm text-gray-500">
               Nenhuma obra com equipamento ativo. Use o seletor acima para
               consultar qualquer obra cadastrada.
@@ -2061,6 +2124,7 @@ export default function ConstrutorasObras({
               </button>
               <button
                 type="button"
+                disabled={somenteLeitura}
                 onClick={() => abrirNovaAtividade(obra, construtora)}
                 className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm"
               >
@@ -2068,6 +2132,7 @@ export default function ConstrutorasObras({
               </button>
               <button
                 type="button"
+                disabled={somenteLeitura}
                 onClick={() => editarObra(obra)}
                 className="rounded-xl border bg-white px-4 py-2 text-blue-600 shadow-sm"
               >
@@ -2095,7 +2160,7 @@ export default function ConstrutorasObras({
                 <div className="mt-2 space-y-1 text-sm">
                   <p><strong>Nome:</strong> {obra.nome || "-"}</p>
                   <p><strong>Construtora:</strong> {construtora?.nome || obra.construtora || "-"}</p>
-                  <p><strong>Situacao:</strong> {obra.situacao || "Ativa"}</p>
+                  <p><strong>Situacao:</strong> {obra.situacao || (somenteLeitura ? "Não informada" : "Ativa")}</p>
                   <p><strong>CNPJ:</strong> {obra.cnpj || "-"}</p>
                   <p><strong>CNO:</strong> {obra.cno || "-"}</p>
                   <p><strong>Codigo interno:</strong> {obra.codigoInterno || "-"}</p>
@@ -2129,7 +2194,7 @@ export default function ConstrutorasObras({
                           <p className="font-medium">{contato.nome || contato.tipo || "Contato"}</p>
                           <p>{[contato.tipo, contato.cargo, contato.crea].filter(Boolean).join(" | ") || "-"}</p>
                           <p>{[contato.telefone, contato.whatsapp, contato.email].filter(Boolean).join(" | ") || "-"}</p>
-                          <p>{contato.ativo === false ? "Inativo" : "Ativo"}{contato.principal ? " | Principal" : ""}</p>
+                          <p>{somenteLeitura && contato.ativo == null ? "Situação não informada" : contato.ativo === false ? "Inativo" : "Ativo"}{contato.principal ? " | Principal" : ""}</p>
                         </div>
                       ))}
                     </div>
@@ -2155,6 +2220,7 @@ export default function ConstrutorasObras({
               </p>
             </section>
 
+            {somenteLeitura ? <>{['Equipamentos ativos','Quantidade de servicos executados','Servicos executados','Historico completo de atividades'].map(titulo=><section key={titulo} className="rounded-xl border bg-white p-4 shadow-sm"><h3 className="font-semibold">{titulo}</h3><p className="mt-2 text-sm text-gray-500">Indisponível nesta tela DEV. Nenhum dado local é utilizado.</p></section>)}</> : <>
             <section className="rounded-xl border bg-white p-4 shadow-sm">
               <h3 className="font-semibold">Equipamentos ativos</h3>
               {resumoAtivos.length === 0 ? (
@@ -2444,6 +2510,7 @@ export default function ConstrutorasObras({
                 </div>
               )}
             </section>
+            </>}
           </>
         )}
       </div>
@@ -2455,6 +2522,7 @@ export default function ConstrutorasObras({
       <div className="flex flex-col gap-2 sm:flex-row">
         <button
           type="button"
+          disabled={somenteLeitura}
           onClick={abrirFormularioNovaConstrutora}
           className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm"
         >
@@ -2462,6 +2530,7 @@ export default function ConstrutorasObras({
         </button>
         <button
           type="button"
+          disabled={somenteLeitura}
           onClick={() => abrirNovaObra()}
           className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm"
         >
@@ -2517,6 +2586,7 @@ export default function ConstrutorasObras({
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <button
                       type="button"
+                      disabled={somenteLeitura}
                       onClick={() => editarConstrutora(construtora)}
                       className="rounded-xl border bg-white px-4 py-2 text-sm text-blue-600 shadow-sm"
                     >
@@ -2524,11 +2594,13 @@ export default function ConstrutorasObras({
                     </button>
                     <button
                       type="button"
+                      disabled={somenteLeitura}
                       onClick={() => abrirNovaObra(construtora)}
                       className="rounded-xl border bg-white px-4 py-2 text-sm text-blue-600 shadow-sm"
                     >
                       Nova Obra nesta Construtora
                     </button>
+                    {somenteLeitura && <button type="button" onClick={()=>consultarConstrutora(construtora)} className="rounded-xl border bg-white px-4 py-2 text-sm text-blue-600 shadow-sm">Consultar cadastro</button>}
                   </div>
 
                   {obrasDaConstrutora.length === 0 ? (
@@ -2549,7 +2621,7 @@ export default function ConstrutorasObras({
                             <div className="space-y-1">
                               <p className="text-base font-semibold">{obra.nome || "Obra sem nome"}</p>
                               <p className="text-sm text-gray-500">
-                                Situacao: {situacaoObra(obra)} | {totalAtivosObra} ativo(s)
+                                Situacao: {situacaoObra(obra, somenteLeitura ? "Não informada" : "Ativa")} | {totalAtivosObra} ativo(s)
                               </p>
                               {resumoAtivos.length > 0 && (
                                 <div className="flex flex-wrap gap-2 pt-1">
@@ -2575,6 +2647,7 @@ export default function ConstrutorasObras({
                               </button>
                               <button
                                 type="button"
+                                disabled={somenteLeitura}
                                 onClick={() => editarObra(obra)}
                                 className="rounded-xl border bg-white px-4 py-2 text-sm text-blue-600 shadow-sm"
                               >
@@ -2582,11 +2655,13 @@ export default function ConstrutorasObras({
                               </button>
                               <button
                                 type="button"
+                                disabled={somenteLeitura}
                                 onClick={() => abrirNovaAtividade(obra, construtora)}
                                 className="rounded-xl border bg-white px-4 py-2 text-sm text-blue-600 shadow-sm"
                               >
                                 Nova Atividade
                               </button>
+                              {somenteLeitura && <button type="button" onClick={()=>consultarObra(obra)} className="rounded-xl border bg-white px-4 py-2 text-sm text-blue-600 shadow-sm">Consultar cadastro</button>}
                             </div>
                           </div>
 
@@ -2651,7 +2726,7 @@ export default function ConstrutorasObras({
         : visualizacao === "gestao"
           ? renderGestao()
           : renderDetalhesCompletosObra()}
-      {modalPatrimonio && (
+      {!somenteLeitura && modalPatrimonio && (
         <PatrimonioEquipamentosModal
           key={modalPatrimonio.fluxoIndividual ? obterIdItemPatrimonio(modalPatrimonio.itens?.[0]) : modalPatrimonio.modo}
           contexto={modalPatrimonio}

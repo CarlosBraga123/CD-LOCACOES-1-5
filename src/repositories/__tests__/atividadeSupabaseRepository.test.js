@@ -8,7 +8,7 @@ const form = { obraId: "s", equipamento: "Balancinho", servico: "Instalação", 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 function fake({ rows = [{ organization_id: org, id: "old", service_type: "Instalação", construction_site_id: "s", equipment_type: "Balancinho", release_date: "2026-10-01" }], role = "admin", active = true, network = false } = {}) {
   const calls = [], context = { status: "authorized", membership: { organization_id: org, role, active }, session: { user: { id: "user" } } };
-  const store = { commercial_tables: [], unit_patrimony_bindings: [], equipment_config_adjustments: [], equipment_substitutions: [], activities: rows, activity_equipment_items: [], constructors: catalog.construtoras, construction_sites: catalog.obras, physical_equipment: catalog.equipamentos };
+  const store = { site_contacts: [], commercial_tables: [], unit_patrimony_bindings: [], equipment_config_adjustments: [], equipment_substitutions: [], activities: rows, activity_equipment_items: [], constructors: catalog.construtoras, construction_sites: catalog.obras, physical_equipment: catalog.equipamentos };
   const client = { supabaseUrl: "https://ldamjmjcgjmujiougcrs.supabase.co", auth: { getUser: vi.fn(async () => ({ data: { user: { id: "user" } }, error: null })) }, from: (table) => {
     const q = { table, filters: [], select: vi.fn(() => q), eq: (field, value) => { q.filters.push([field, value]); return q; }, order: () => q, abortSignal: () => q,
       limit: async () => ({ data: [{ organization_id: org, role, active }], error: null }),
@@ -22,6 +22,14 @@ function fake({ rows = [{ organization_id: org, id: "old", service_type: "Instal
   return { client, calls, store, context, repo: criarAtividadeSupabaseRepository(client, { contextoAtual: () => context }) };
 }
 describe("fonte remota de Atividades", () => {
+  it('pagina contatos pela identidade composta e carrega colunas completas sem raw_payload',async()=>{
+    const f=fake();f.store.site_contacts=Array.from({length:201},(_,i)=>({organization_id:org,id:'mesmo',construction_site_id:`site-${i}`}));
+    const result=await f.repo.listarAtualizado();expect(result.contatosObras).toHaveLength(201);
+    expect(f.calls.filter(c=>c.table==='site_contacts').map(c=>c.start)).toEqual([0,200]);
+    expect(f.calls.find(c=>c.table==='constructors').columns).toContain('financial_email');
+    expect(f.calls.find(c=>c.table==='construction_sites').columns).toContain('delivery_address');
+    expect(f.calls.every(c=>!c.columns.includes('raw_payload'))).toBe(true);
+  });
   it('leitura compartilhada valida todas as páginas duas vezes, incluindo o último UUID',async()=>{
     const rows=Array.from({length:884},(_,i)=>({organization_id:org,id:`id-${i}`,scheduled_date:'2026-10-14'}));
     const f=fake({rows});const shared=criarLeituraCompartilhadaDev(f.repo,()=>f.context);

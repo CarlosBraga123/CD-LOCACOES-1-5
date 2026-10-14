@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   normalizarNumeroPatrimonio,
   obterPatrimonioAtual,
@@ -156,6 +157,7 @@ export default function AtividadeResumoCard({
   informacoesAdicionais,
   contextoPatrimonial,
   registrosPatrimonio: registrosFornecidos,
+  pendenciaPatrimonialIndisponivel = false,
 }) {
   const quantidade = obterQuantidade(atividade);
   const dataLiberacao = atividade?.dataLiberacao || "";
@@ -220,7 +222,8 @@ export default function AtividadeResumoCard({
           Patrimônio: {patrimonio}
         </p>
       ))}
-      {atividadeTemPatrimonioPendente(atividade, contextoPatrimonial) && (
+      {pendenciaPatrimonialIndisponivel && <p className="text-xs text-amber-700">Resumo de pendência patrimonial indisponível nesta fonte.</p>}
+      {!pendenciaPatrimonialIndisponivel && atividadeTemPatrimonioPendente(atividade, contextoPatrimonial) && (
         <p className="text-xs font-medium text-amber-700">
           Patrimônio pendente
         </p>

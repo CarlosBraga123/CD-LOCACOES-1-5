@@ -1,6 +1,6 @@
 # Equivalência funcional Local legado → Supabase DEV
 
-Data-base: 14/10/2026. Revisão 2. Código-base: d733c327a6082abe7166b1fc37f85a0ac9067d8f e alterações locais preservadas. Projeto de destino: ldamjmjcgjmujiougcrs, organização cd-locacoes.
+Data-base: 14/10/2026. Revisão 4. Código-base: 9ffacaf33049cfa2c9c3eff62ec12f0d41b00fa3 e alterações locais preservadas. Projeto de destino: ldamjmjcgjmujiougcrs, organização cd-locacoes.
 
 Este documento é o acompanhamento obrigatório das próximas fases. Cada entrega deve atualizar as linhas afetadas com commit, migration, evidência de teste, data e limitações. Não marcar um módulo inteiro equivalente porque apenas sua tabela foi importada ou uma RPC passou em testes.
 
@@ -14,9 +14,9 @@ Legenda: **E** equivalência do recorte descrito; **P** parcial; **L** consumido
 
 ## Diagnóstico
 
-Atualização fase 1: Atividades e Agenda agora compartilham um serviço de leitura em memória; detalhes e limites abaixo. Dashboard permanece Local identificado.
+Atualização fase 1: Atividades e Agenda agora compartilham um serviço de leitura em memória; detalhes e limites abaixo. Dashboard agora oferece fonte Local e leitura DEV parcial, conforme revisão 3.
 
-O projeto tem dois caminhos de persistência. atividadeRepository e os demais repositórios tradicionais são síncronos sobre localStorage. criarAtividadeSupabaseRepository é assíncrono e agora atende AtividadesRemotas e AgendaRemota por um provider compartilhado. Trocar a fonte em Atividades não troca a fonte global do aplicativo. Agenda passou a oferecer fonte explícita Local ou Supabase DEV; Dashboard, relatórios e documentos continuam dependentes de dados do navegador.
+O projeto tem dois caminhos de persistência. atividadeRepository e os demais repositórios tradicionais são síncronos sobre localStorage. criarAtividadeSupabaseRepository é assíncrono e agora atende AtividadesRemotas, AgendaRemota e DashboardRemoto por um provider compartilhado. Trocar a fonte em Atividades não troca a fonte global do aplicativo. Agenda passou a oferecer fonte explícita Local ou Supabase DEV; Dashboard tem recorte operacional remoto e partes indisponíveis; relatórios e documentos continuam dependentes de dados do navegador.
 
 O formulário foi compartilhado visualmente, mas a RPC atual é propositalmente restrita: somente agendamento individualizado de Instalação/Somente aluguel. Ela fixa liberação nula, iniciado falso, flags financeiras falsas e valores zero. A prévia comercial remota não equivale a valores contratados/congelados. Não se deve remover esses bloqueios antes de implementar o ciclo completo de liberação e seus consumidores.
 
@@ -68,8 +68,8 @@ O servidor 130002 reconcilia ocupação pelo histórico e usa locks em seis tabe
 | AT-17 | Falhas de rede, UUID, resultado incerto | P | Comando em memória, sem retry automático; falta consulta de status por UUID integrada e sobrevivência ao fechamento | cadastroAgendadoRemoto.js |
 | AG-01 | Agenda semana/mês/dia e estados | P/E no calendário | Calendário original compartilhado com fonte explícita; HTML semanal equivalente testado, estados e datas preservados; homologação interativa mensal/iPhone pendente | Agenda.tsx, AgendaRemota.jsx |
 | AG-02 | Exportação PDF da agenda | P | Mesmo exportador e DOM mensal recebem dados remotos; geração real de PDF/iPhone ainda não homologada | Agenda.tsx |
-| DASH-01 | Recentes, agendados, pendências e indicadores | L | Mantido Local e identificado no App; tarefas e contexto financeiro/patrimonial completos não comprovados no leitor atual | Dashboard.jsx, App.jsx |
-| DASH-02 | Faturamento mensal e contexto patrimonial | L | Precisa fontes comerciais e financeiras coerentes antes de declarar equivalência | Dashboard.jsx |
+| DASH-01 | Recentes, agendados, pendências e indicadores | P; equivalência do recorte APTO | Seis cards e listas equivalentes ao cálculo Local; saldos identificados como operacionais, integridade física pendente em trilha separada. Pendências/tarefas indisponíveis. Local preservado | DashboardFonte.jsx, DashboardRemoto.jsx, dashboardRemoto.js |
+| DASH-02 | Faturamento mensal e contexto patrimonial | L/N no DEV | Gráfico indisponível em vez de zero. Faltam fallbacks financeiros completos e homologação de contexto patrimonial sem getters locais | Dashboard.jsx, DashboardRemoto.jsx |
 | OS-01 | Número automático da OS na liberação | L/N | Local calcula próximo por ano; remoto exige geração atômica preservando formato | utils/ordemServico.js |
 | OS-02 | OS: descrição, materiais, OS campo, QR e assinatura | L/N | Componente existente; falta abrir via registro remoto e carregar dados completos | OrdemServico.jsx, OrdemServicoLayout.jsx |
 | OS-03 | Exportar/compartilhar OS | L | Reutilizar PDF/imagem/compartilhamento e testar permissões/layout iOS | OrdemServico.jsx |
@@ -86,7 +86,7 @@ O servidor 130002 reconcilia ocupação pelo histórico e usa locks em seis tabe
 | CFG-02 | Identidade da empresa/logo | L/D | Base compartilhada ou preferência local? Não mover assinatura/logo para Storage sem escopo e segurança | EmpresaHeader.jsx, empresaRepository.js |
 | BK-01 | Exportar/restaurar backup JSON local | L/D | Importação atual substitui coleções locais; nunca conectá-la diretamente ao remoto | BackupImportacao.jsx, contratoDados.js |
 | BK-02 | Backup PostgreSQL e restauração | P | Procedimento administrativo ensaiado; não corresponde ao botão de backup do usuário | evidências isoladas do CLI |
-| SYNC-01 | Consulta PC/iPhone e refresh manual | E/P | Atividades e Agenda usam a mesma revisão em memória por sessão, refresh manual e sem persistência local; homologação real da Agenda entre dispositivos pendente | LeituraDevContext.jsx |
+| SYNC-01 | Consulta PC/iPhone e refresh manual | E/P | Atividades, Agenda e Dashboard DEV usam a mesma revisão em memória por sessão, refresh manual e sem persistência local; homologação real do Dashboard pendente | LeituraDevContext.jsx |
 | SYNC-02 | Atualizações em tempo real / snapshots coerentes | P/D | Duas leituras completas iguais antes da publicação; mudanças observáveis rejeitadas. Sem Realtime ou garantia MVCC entre tabelas; RPC transacional futura só se exigida | leituraCompartilhadaDev.js |
 | OFF-01 | Persistência local sem rede | L/P | localStorage persiste; Auth remoto pode bloquear telas sem revalidação; preservar dados não garante acesso offline | localStorageAdapter.js, authSession.js |
 | OFF-02 | PWA/offline remoto, fila e reconciliação | N/D | Manifesto existe; não encontrado service worker/IndexedDB/outbox. Definir política, não presumir equivalência offline | public/manifest.webmanifest, main.jsx, vite.config.js |
@@ -230,6 +230,7 @@ Executar somente a fase 1 como próximo escopo: fonte remota explícita, contrat
 |---|---|---|---|
 | 1 — 14/10/2026 | Inventário estático e plano; sem implantação | Código/SQL/testes existentes; 884 registros informados pelo responsável | Aprovar fase 1 e decisões de perfis/offline/documentos/cutover |
 | 2 — 14/10/2026 | Camada compartilhada + Agenda implementadas localmente; Dashboard Local explícito | 645 testes aprovados, 167 SQL ignorados; homologação no PC informada pelo responsável; iPhone pendente | Homologar iPhone/PDF e comprovar contratos restantes do Dashboard |
+| 3 — 14/10/2026 | Dashboard DEV parcial, com seleção Local/DEV; sem publicação | 656 testes aprovados, 167 SQL ignorados; homologação real pendente | Homologar indicadores e completar contratos de pendências, tarefas e financeiro |
 
 Na revisão 1 somente este documento foi criado; implementação local da revisão 2 descrita abaixo. Nenhuma migration ou registro remoto alterado. Sem commit, push ou deploy.
 
@@ -262,3 +263,89 @@ Não houve nova conexão Supabase, testes reais de RLS PostgreSQL ou execução 
 Parecer do recorte: APTO para homologação local da camada de leitura e Agenda; fase 1 completa permanece parcial porque Dashboard e snapshot transacional estrito não foram entregues. Não é necessária mudança de banco para o recorte implementado.
 
 Próximo passo: conferir Agenda Local versus DEV com os mesmos dados, semana/mês e PDF no navegador; depois homologar iPhone/PC sob autorização de publicação. Para Dashboard, inventariar e comprovar tasks, parâmetros financeiros, metadados comerciais e contexto patrimonial antes de qualquer adaptação. Se for exigida leitura SQL atomicamente consistente, propor RPC somente leitura e testes de concorrência antes de sua implementação, sem afrouxar guards.
+
+## Revisão 3 — Dashboard DEV operacional parcial
+
+Implementação somente no Desenvolvimento, sem novas tabelas/RPCs, migrations ou consultas remotas nesta etapa. Usa o contrato de leitura já existente, não a presunção de que importar uma tabela implementa seu módulo. Nenhum indicador financeiro foi habilitado.
+
+### Inventário dos indicadores e critérios originais
+
+| Indicador / região | Origem e critério do Local | Implementação DEV |
+|---|---|---|
+| Pendências Operacionais e detalhamento | atividades + obras + registros administrativos + mestres; obterPendenciasOperacionais chama helpers que podem carregar ajustes/substituições locais implicitamente | Indisponível; sem contagem zero e sem ação de filtro de pendências |
+| Serviços nos últimos 7 dias | atividades com liberação; new Date(dataLiberacao) entre agora menos sete dias e agora, decrescente; não usa data de criação nem filtro de tipo de serviço | Integrado |
+| Serviços Agendados | agendamento preenchido e sem liberação, data crescente; não exclui agendamentos antigos | Integrado |
+| Serviços do Mês | mês UTC atual; referência liberação ou agendamento; quantidade Number(valor) ou 1; exclui Manutenção; respeita cobraServico explícito e fallback da lista original | Integrado, com detalhamento por serviço |
+| Outras Atividades | mesmo mês/referência; Manutenção, Somente aluguel, Somente recolhimento; soma das quantidades e agrupamento por serviço | Integrado |
+| Balancinhos Ativos | somente atividades liberadas, entradas e saídas pelas flags; fallback legado apenas Instalação/Remoção; Elétricos/Manuais/Sem tipo | Integrado como saldo aritmético original, não como nova contagem de mestres físicos |
+| Mini Gruas Ativas | mesma regra de saldo; grupos 500 kg/1 T/Sem tipo | Integrado |
+| Faturamento últimos 6 meses | atividades, valores congelados, valoresServicos, valoresPadrao, tabelas obra/construtora/padrão e calcularPeriodosLocacao; barras e totais com referência de mês do Local | Indisponível; não renderiza barras/valores zero ou R$ fictícios |
+| Próximos Serviços Agendados | todos os agendados, ordenados crescente; nomes por obra com fallback histórico, tamanho e iniciado | Integrado; navegação pelo UUID preservada |
+| Tarefas Pendentes / Concluir | tarefaRepository, concluida, vínculos de atividade, data/responsável; conclusão grava localmente | Indisponível; nenhum botão Concluir remoto ou acesso a tarefaRepository |
+| Atividades Recentes | mesma seleção dos últimos 7 dias, AtividadeResumoCard e dados de obra | Integrado; registros patrimoniais remotos explícitos, resumo de pendência não homologado identificado como indisponível |
+
+O Dashboard original não possui seletor de período, construtora ou obra. Não foram criados filtros novos. As referências temporais e os agrupamentos acima foram conservados. As flags falsas das atividades apenas agendadas no DEV são respeitadas; não são trocadas por flags deduzidas do serviço. Saldos negativos ou quantidades zero seguem o cálculo original (quantidade zero usa fallback 1), sem tentar corrigir regras nesta fase.
+
+### Fonte e ausência de mistura
+
+DashboardFonte.jsx mantém Local legado como seleção inicial para preservar o comportamento anterior da tela inicial. Selecionar Supabase DEV monta o leitor remoto; não mantém o Dashboard Local montado em paralelo. Selecionar Local monta Dashboard.jsx original, que não foi alterado.
+
+O ramo DEV usa useLeituraDev, a mesma revisão de Atividades e Agenda, com atualização manual, revalidação e descarte de consultas antigas herdados do serviço. Sessão/perfil não autorizados impedem o conteúdo. Os dados permanecem apenas em memória, sem gravação de coleções no navegador ou comandos de escrita.
+
+Sem atividades completas, o Dashboard não mostra zero como resultado. Datas inválidas ou ausência de equipamento/serviço/data bloqueiam os indicadores operacionais com motivo explícito. Catálogo de obra/construtora incompleto bloqueia as listas identificadas, sem nomes inventados. Ausência de vínculos impede os cartões recentes que necessitam deles. Uma coleção vazia válida pode resultar em zero nos indicadores suportados; isso é diferente de fonte ausente.
+
+AtividadeResumoCard recebeu um parâmetro opcional de indisponibilidade da pendência, utilizado somente pelo Dashboard DEV; o comportamento padrão permanece igual. O DEV passa registros patrimoniais explicitamente e não chama o helper que poderia cair em getters locais. Números e campos históricos do cartão continuam exibidos pelo componente original; não se afirma equivalência do resumo de pendência.
+
+### Arquivos
+
+- Criados: src/components/DashboardFonte.jsx; src/components/DashboardRemoto.jsx; src/repositories/dashboardRemoto.js; src/repositories/__tests__/dashboardRemoto.test.jsx.
+- Alterados: src/App.jsx (rota/avisos de fonte), src/components/AtividadeResumoCard.jsx (opção explícita de indisponibilidade), este documento.
+- Preservados integralmente: src/components/Dashboard.jsx, formulário Local/remoto, contratos da RPC, migrations e demais alterações pendentes.
+
+O ramo remoto conserva as classes, títulos, ordem dos sete cards e estrutura das seções do original. Regiões sem contrato são substituídas apenas pela mensagem necessária de indisponibilidade. O markup remoto correspondente deve acompanhar futuras mudanças visuais do Local; os cálculos são comparados diretamente contra o código Local nos testes para detectar divergência.
+
+### Testes e aceite
+
+656 testes aprovados, 167 SQL ignorados, zero reprovados na validação final de testes. Onze regressões específicas incluem comparação contra execução isolada do cálculo do próprio Dashboard.jsx (oracle, sem dados reais), virada de mês/ano, fevereiro bissexto, flags explícitas/legadas, quantidade zero, saldo negativo, datas inválidas, catálogo incompleto, última página/UUID, navegação, falta de autorização, erro sem zeros falsos, ausência de chamadas ao armazenamento local e ausência de conclusão/faturamento remoto. Os testes existentes cobrem paginação de 884 registros em duas passagens, sessão/perfil, respostas antigas e divergências observáveis entre leituras.
+
+Não houve teste SQL de RLS novo nem homologação visual no navegador/PC/iPhone do Dashboard DEV nesta etapa. As permissões do frontend foram exercitadas com clientes simulados e o provider existente; isso não substitui a proteção RLS instalada. A limitação de snapshot MVCC descrita na revisão 2 permanece. npm run build e git diff --check aprovados. Build em pasta temporária, sem publicação; permanecem os avisos existentes de Browserslist e tamanho do bundle.
+
+Parecer: APTO para homologação local do recorte operacional; equivalência completa do Dashboard continua parcial. Próximas dependências: integrar tasks com vínculos/tipos e leitura autorizada; eliminar getters implícitos do pipeline de pendências mediante testes; comprovar valores congelados/fallbacks comerciais e períodos financeiros completos antes de habilitar o gráfico. Não aplicar 080002 por conveniência e não criar dados de teste remotos para esta validação.
+
+### Conferência final antes do commit — 14/10/2026
+
+Homologação visual informada pelo responsável: 2 agendados, 0 serviços recentes, 0 serviços do mês, 1 Outra Atividade (Somente aluguel), saldo de 82 balancinhos elétricos e 1 mini grua de 1T. Agendamentos ACR/Marina e ACR/Gran Tower visíveis. Esses números não foram recontados no banco nesta conferência: a tentativa SELECT via supabase_dev falhou antes do resultado com `OAuth token refresh failed: Failed to parse server response`.
+
+Revisão do código comprovou que o card Ativos do Dashboard Local soma quantidades de atividades liberadas que iniciam locação e subtrai as que encerram, por tipo. Não consulta o status administrativo, não deduplica identidades físicas, não verifica correspondência entre quantidade e itens e não reconstrói individualmente ocupação por obra. O remoto reproduz essa regra. Logo, 82 e 1 são saldos operacionais aritméticos; não há comprovação nesta etapa de que sejam 83 equipamentos físicos distintos ainda ocupados em obras.
+
+Testes novos demonstram, com dados sintéticos, que duas entradas de quantidade 41 podem gerar saldo 82 mesmo referindo-se ao mesmo ID físico. Isso demonstra o limite da regra, não que esses sejam os registros reais do DEV. Confirmar os números reais exige comparar em leitura o saldo original, as unidades reconstruídas por obra, IDs físicos distintos, identidades legadas não resolvidas e possíveis referências repetidas; não basta contar status LOCADO ou NO_GALPAO.
+
+Últimos 7 dias exige dataLiberacao e não inclui agendadas. Serviços do Mês, diferentemente, usa dataLiberacao OU dataAgendamento e a flag cobraServico: uma agendada legada com cobraServico verdadeiro (ou fallback faturável) pode ser contada. Isso já ocorre no Local. Os cadastros pela RPC 130001/130002 ficam com liberação nula e cobraServico/iniciaLocacao/encerraLocacao falsos; uma regressão com dois agendamentos reproduziu 0 recentes, 2 agendados, 0 serviços do mês, 1 Outra Atividade e nenhum saldo ativo decorrente deles.
+
+Outras Atividades usa o mês da liberação ou agendamento, inclui Manutenção, Somente aluguel e Somente recolhimento e soma quantidade (fallback 1). Não é um contador exclusivo de serviços executados e não exige flag de cobrança. O valor 1 para Somente aluguel agendado é coerente com essa regra, sem indicar cobrança ou início de locação.
+
+Não houve divergência comprovada entre o cálculo remoto e o Local que autorizasse substituir silenciosamente a regra. Nenhum cálculo operacional ou Local foi alterado nesta conferência; foram acrescentadas somente três regressões e esta ressalva. Caso se deseje que o card Ativos represente patrimônios físicos ocupados ou que Serviços do Mês represente somente executados, explicitar essa decisão após auditoria real: isso muda a semântica do indicador, mesmo mantendo o Local intacto.
+
+Nova suíte: 659 testes aprovados, 167 SQL ignorados, zero reprovados. npm run build e git diff --check aprovados; build somente local em pasta temporária. **Parecer histórico desta conferência: integridade física não homologada. O bloqueio de commit por essa pendência foi revisto na revisão 4, por orientação expressa do responsável, sem alterar saldos ou fórmula.** Nenhum commit, push, deploy, migration ou escrita remota executado.
+
+## Revisão 4 — Critérios separados para concluir a validação
+
+14/10/2026. A pedido expresso do responsável, a integridade patrimonial é acompanhada separadamente da equivalência da fórmula original. A ausência de conferência física não bloqueia o commit local do recorte funcional.
+
+| Dimensão | Evidência | Estado / critério |
+|---|---|---|
+| Equivalência funcional | Cálculo remoto comparado diretamente com o código Local; datas, flags, agrupamentos, totais e ordenações preservados; regressões de agendamento e saldos aritméticos | APTO para commit local do Dashboard parcial |
+| Integridade patrimonial | Saldo informado de 82 balancinhos e 1 mini grua; não equivale a contagem de IDs físicos únicos por obra. MCP falha OAuth antes de retornar dados | PENDENTE; não certificada, sem alteração de números ou regras |
+| Homologação visual PC | Responsável confirmou cards e agendamentos ACR/Marina e ACR/Gran Tower. Adicionada identificação explicativa nos cards de saldo, sem mudar valores/títulos/fórmula | Conferência funcional informada; texto explicativo novo pode ser conferido localmente |
+| Homologação iPhone do Dashboard novo | Não apresentada nesta etapa | PENDENTE; não confundir com testes de cálculo ou deploy |
+| Capacidades não integradas | Faturamento, tarefas/conclusão e resumo de pendências indicados como indisponíveis, sem fallback local | Bloqueadas explicitamente até seus contratos serem homologados |
+
+Tentativa de leitura via MCP supabase_dev: `OAuth token refresh failed: Failed to parse server response`. Configuração local confirma endpoint oficial com project_ref ldamjmjcgjmujiougcrs e read_only=true. Vínculo do workspace CLI também aponta para o DEV, mas vínculo e credencial de API não comprovam sessão PostgreSQL disponível. Nenhuma senha foi solicitada, lida ou exposta; nenhuma alternativa de autenticação ou comando que renove papel auxiliar foi executado.
+
+Única mudança de interface desta revisão: os cards Balancinhos Ativos e Mini Gruas Ativas agora exibem: “Saldo operacional de entradas e saídas liberadas, conforme o Local. Não é contagem de patrimônios físicos únicos; conferência patrimonial pendente.” Fórmula, valor, detalhe por tipo e títulos permanecem iguais. Dashboard.jsx Local e dashboardRemoto.js não foram alterados nesta revisão. Regressão verifica os dois avisos.
+
+Pendência técnica independente: quando o acesso de leitura for restabelecido, comparar agregadamente o saldo de movimentos com unidades reconstruídas por obra, IDs físicos distintos, identidades legadas sem resolução, repetições e histórico de entradas/saídas. Uma divergência deve ser documentada, não usada para substituir silenciosamente os saldos da fórmula Local. Nenhuma evidência atual comprova qual seria a contagem física correta.
+
+Não há impedimento técnico comprovado para continuar o desenvolvimento ou criar o commit local do recorte funcional. Os saldos não devem ser usados como prova de disponibilidade para liberar equipamentos: essa validação pertence ao histórico patrimonial transacional, já separado da fórmula do Dashboard. Funcionalidades financeiras e operacionais ainda não integradas continuam bloqueadas. A indisponibilidade OAuth impede a auditoria remota, não invalida a equivalência testada.
+
+Validação final: 659 testes aprovados, 167 SQL ignorados, zero reprovados; npm run build e git diff --check aprovados. Build somente local em pasta temporária. Não foi criado commit, nem realizado push/deploy ou alteração remota nesta revisão.

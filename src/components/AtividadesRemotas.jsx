@@ -5,6 +5,7 @@ import { criarAtividadeSupabaseRepository } from "../repositories/atividadeRepos
 import AtividadeResumoCard from "./AtividadeResumoCard";
 import CadastroAtividadeRemota from "./CadastroAtividadeRemota";
 import { criarTransporteCadastroRpc } from "../repositories/atividadeSupabaseRepository";
+import { ordenarAtividadesRemotas } from "../repositories/ordenacaoAtividadesRemotas";
 
 // Consulta do módulo existente; nenhum cadastro paralelo ou cópia para localStorage.
 export default function AtividadesRemotas({ contextoNavegacao }) {
@@ -45,7 +46,8 @@ export default function AtividadesRemotas({ contextoNavegacao }) {
   useEffect(() => {
     setBusca(contextoNavegacao?.atividadeId ? String(contextoNavegacao.atividadeId) : "");
   }, [contextoNavegacao?.atividadeId]);
-  const filtered = (snapshot?.atividades || []).filter((a) => (!obraId || a.obraId === obraId) && (!busca || [a.id, a.obra, a.construtora, a.servico, a.numeroOS, ...(a.numerosPatrimonio || [])].some((v) => String(v || "").toLocaleLowerCase("pt-BR").includes(busca.toLocaleLowerCase("pt-BR")))));
+  const ordenadas = useMemo(() => ordenarAtividadesRemotas(snapshot?.atividades || []), [snapshot]);
+  const filtered = ordenadas.filter((a) => (!obraId || a.obraId === obraId) && (!busca || [a.id, a.obra, a.construtora, a.servico, a.numeroOS, ...(a.numerosPatrimonio || [])].some((v) => String(v || "").toLocaleLowerCase("pt-BR").includes(busca.toLocaleLowerCase("pt-BR")))));
   return <section className="p-4 sm:p-6">
     <h2 className="text-xl font-semibold">Atividades — Supabase DEV</h2>
     <p className="my-3 rounded border border-cyan-300 bg-cyan-50 p-3">Fonte: banco de Desenvolvimento. Leitura remota com atualização manual. Sem importação, sincronização ou fallback local.</p>

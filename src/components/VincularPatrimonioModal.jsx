@@ -1,3 +1,4 @@
+import { useAuth } from "../auth/AuthContext";
 import { useMemo, useState } from "react";
 import { atividadeRepository } from "../repositories/atividadeRepository";
 import { obterUnidadesEquipamentosAtivos } from "../utils/equipamentosAtivos";
@@ -45,6 +46,7 @@ export default function VincularPatrimonioModal({
   onClose,
   onVinculado,
 }) {
+  const auth = useAuth();
   const itens = criarItensProvisoriosVinculo(atividade);
   const pendentes = itens.filter((item) => !itemPossuiVinculoPatrimonial(item));
   const [idItem, setIdItem] = useState(pendentes[0]?.idItem || "");
@@ -149,7 +151,7 @@ export default function VincularPatrimonioModal({
 
     setSalvando(true);
     try {
-      const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "null")?.nome;
+      const usuario = auth.session?.user?.email;
       const atualizadas = aplicarVinculoPatrimonialPosterior({
         atividades: atividadesAtuais,
         atividadeId: atividade.id,

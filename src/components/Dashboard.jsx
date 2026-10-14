@@ -1,3 +1,4 @@
+import { useAuth } from "../auth/AuthContext";
 import { useEffect, useState } from "react";
 import { calcularPeriodosLocacao } from "../utils/locacaoFinanceira";
 import { formatarMoeda } from "../utils/moeda";
@@ -20,7 +21,8 @@ const servicosValidos = ["Instalação", "Deslocamento", "Manutenção", "Ascens
 
 export default function Dashboard({ abrirAtividade, navegar }) {
   const [tarefasPendentes, setTarefasPendentes] = useState([]);
-  const [usuario, setUsuario] = useState("Usuário");
+  const { session } = useAuth();
+  const usuario = session?.user?.email || "Usuário";
   const [recentes, setRecentes] = useState([]);
   const [agendados, setAgendados] = useState([]);
   const [cards, setCards] = useState([]);
@@ -29,9 +31,6 @@ export default function Dashboard({ abrirAtividade, navegar }) {
   const [contextoPatrimonial, setContextoPatrimonial] = useState({});
 
   useEffect(() => {
-    const usuarioSalvo = JSON.parse(localStorage.getItem("usuarioLogado"));
-    if (usuarioSalvo?.nome) setUsuario(usuarioSalvo.nome);
-
     const tarefasTodas = tarefaRepository.listar();
     setTarefasPendentes(tarefasTodas.filter((t) => !t.concluida));
 

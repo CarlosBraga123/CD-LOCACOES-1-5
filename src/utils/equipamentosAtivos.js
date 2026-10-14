@@ -130,10 +130,11 @@ export const obterUnidadesEquipamentosAtivos = (
   obra,
   atividades = [],
   registrosPatrimonio = obterRegistrosPatrimonio(),
-  equipamentosMestres = obterEquipamentosPatrimonio()
+  equipamentosMestres = obterEquipamentosPatrimonio(),
+  contexto = {}
 ) => {
   const unidades = [];
-  const ajustes = obterAjustesConfiguracaoEquipamentos()
+  const ajustes = (contexto.ajustes ?? obterAjustesConfiguracaoEquipamentos())
     .filter(
       (ajuste) =>
         !ajuste.obraId || String(ajuste.obraId) === String(obra?.id || "")
@@ -286,7 +287,8 @@ export const obterUnidadesEquipamentosAtivos = (
     }));
   return aplicarSubstituicoesEquipamentosAtivos(
     unidadesComIdentidade,
-    equipamentosMestres
+    equipamentosMestres,
+    contexto.substituicoes
   );
 };
 

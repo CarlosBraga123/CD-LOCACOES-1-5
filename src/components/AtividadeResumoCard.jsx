@@ -155,6 +155,7 @@ export default function AtividadeResumoCard({
   title,
   informacoesAdicionais,
   contextoPatrimonial,
+  registrosPatrimonio: registrosFornecidos,
 }) {
   const quantidade = obterQuantidade(atividade);
   const dataLiberacao = atividade?.dataLiberacao || "";
@@ -167,7 +168,7 @@ export default function AtividadeResumoCard({
       ? "EM ANDAMENTO"
       : "AGENDADO";
   const itens = obterItens(atividade);
-  const registrosPatrimonio = obterRegistrosPatrimonio();
+  const registrosPatrimonio = registrosFornecidos ?? obterRegistrosPatrimonio();
   const patrimonios = itens.length > 0
     ? itens.map((item) => obterPatrimonioAtual(item, registrosPatrimonio))
     : [

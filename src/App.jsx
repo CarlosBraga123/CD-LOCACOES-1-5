@@ -12,7 +12,8 @@ import FechamentoMensal from "./components/FechamentoMensal";
 import BackupImportacao from "./components/BackupImportacao";
 import Configuracoes from "./components/Configuracoes";
 import TabelaComercial from "./components/TabelaComercial";
-import Usuarios from "./components/Usuarios";
+import { useAuth } from "./auth/AuthContext";
+import { podeAcessarPagina } from "./auth/authSession";
 import Login from "./components/Login";
 import ListaDeTarefas from "./components/ListaDeTarefas";
 import ControlePatrimonios from "./components/ControlePatrimonios";
@@ -31,20 +32,14 @@ import {
   PackageSearch,
   Settings,
   ShieldCheck,
-  Users,
 } from "lucide-react";
-
-// 👇 Simula um login automático como admin
-const usuarioAdminSimulado = {
-  nome: "Admin (acesso automático)",
-  tipo: "admin",
-};
 
 export default function App() {
   const [selectedPage, setSelectedPage] = useState("dashboard");
   const [contextoNavegacao, setContextoNavegacao] = useState(null);
   const [menuAberto, setMenuAberto] = useState(false);
-  const [usuarioLogado, setUsuarioLogado] = useState(usuarioAdminSimulado);
+  const auth = useAuth();
+  const usuarioLogado = { nome: auth.session?.user?.email || "Usuário", tipo: auth.membership?.role };
   const [logoFalhou, setLogoFalhou] = useState(false);
 
   const navegar = (pagina, contexto = null) => {
@@ -91,6 +86,7 @@ export default function App() {
   };
 
   const renderContent = () => {
+    if (!podeAcessarPagina(auth.membership, selectedPage)) return <p role="alert" className="p-6">Acesso indisponível para este perfil. Os cadastros locais não concedem autorização Supabase.</p>;
     switch (selectedPage) {
       case "dashboard": return <Dashboard abrirAtividade={abrirAtividade} navegar={navegar} />;
       case "construtorasobras": return <ConstrutorasObras navegar={navegar} abrirAtividade={abrirAtividade} contextoNavegacao={contextoNavegacao} limparContextoNavegacao={limparContextoNavegacao} />;
@@ -106,12 +102,16 @@ export default function App() {
       case "backup": return <BackupImportacao />;
       case "configuracoes": return <Configuracoes />;
       case "tabelacomercial": return <TabelaComercial />;
-      case "usuarios": return <Usuarios />;
+      case "usuarios": return null;
       case "tarefas": return <ListaDeTarefas usuario={usuarioLogado?.nome || "Usuário"} />;
       case "diagnosticosupabase": return <DiagnosticoSupabase />;
       default: return <div className="p-4">Página não encontrada</div>;
     }
   };
+
+  if (auth.status === "loading") return <p role="status" className="p-6">Verificando sessão e acesso ao Desenvolvimento...</p>;
+  if (auth.status !== "authorized") return <Login />;
+  if (auth.membership.role === "funcionario") return <main className="p-6"><h1>CD Locações — Desenvolvimento</h1><p>Acesso operacional de Funcionário bloqueado nesta etapa: as telas locais não usam as views seguras e a migration 080002 está pendente.</p><button onClick={auth.logout} className="mt-4 rounded border p-3">Sair</button></main>;
 
   return (
     <div className="flex h-screen text-gray-800">
@@ -150,33 +150,28 @@ export default function App() {
               <button onClick={() => navegar("controlepatrimonios")} className="flex items-center gap-2 text-left hover:text-blue-600"><PackageSearch size={20} aria-hidden="true" />Controle de Patrimônios</button>
             </>
           )}
-          <button onClick={() => navegar("atividades")} className="flex items-center gap-2 text-left hover:text-blue-600"><ClipboardList size={20} aria-hidden="true" />Atividades</button>
-          <button
+          {podeAcessarPagina(auth.membership, "atividades") && <button onClick={() => navegar("atividades")} className="flex items-center gap-2 text-left hover:text-blue-600"><ClipboardList size={20} aria-hidden="true" />Atividades</button>}
+          {podeAcessarPagina(auth.membership, "agenda") && <button
   onClick={() => { setSelectedPage("agenda"); setMenuAberto(false); }}
   className="flex items-center gap-2 text-left hover:text-blue-600"
 >
   <CalendarDays size={20} aria-hidden="true" />Agenda
-</button>
+</button>}
 
-          <button onClick={() => { setSelectedPage("tarefas"); setMenuAberto(false); }} className="flex items-center gap-2 text-left hover:text-blue-600"><ListTodo size={20} aria-hidden="true" />Lista de Tarefas</button>
+          {podeAcessarPagina(auth.membership, "tarefas") && <button onClick={() => { setSelectedPage("tarefas"); setMenuAberto(false); }} className="flex items-center gap-2 text-left hover:text-blue-600"><ListTodo size={20} aria-hidden="true" />Lista de Tarefas</button>}
           {(usuarioLogado.tipo === "admin" || usuarioLogado.tipo === "gestor") && (
             <button onClick={() => navegar("relatorios")} className="flex items-center gap-2 text-left hover:text-blue-600"><FileBarChart size={20} aria-hidden="true" />Relatórios</button>
           )}
           {usuarioLogado.tipo === "admin" && (
             <>
               <button onClick={() => { setSelectedPage("backup"); setMenuAberto(false); }} className="flex items-center gap-2 text-left hover:text-blue-600"><DatabaseBackup size={20} aria-hidden="true" />Backup</button>
-              <button onClick={() => { setSelectedPage("usuarios"); setMenuAberto(false); }} className="flex items-center gap-2 text-left hover:text-blue-600"><Users size={20} aria-hidden="true" />Usuários</button>
               <button onClick={() => { setSelectedPage("tabelacomercial"); setMenuAberto(false); }} className="flex items-center gap-2 text-left hover:text-blue-600"><BadgeDollarSign size={20} aria-hidden="true" />Tabela Comercial</button>
               <button onClick={() => { setSelectedPage("configuracoes"); setMenuAberto(false); }} className="flex items-center gap-2 text-left hover:text-blue-600"><Settings size={20} aria-hidden="true" />Configurações</button>
               <button onClick={() => navegar("diagnosticosupabase")} className="flex items-center gap-2 text-left text-amber-700 hover:text-amber-900"><ShieldCheck size={20} aria-hidden="true" />Diagnóstico Supabase</button>
             </>
           )}
           <button
-            onClick={() => {
-              localStorage.removeItem("usuarioLogado");
-              setUsuarioLogado(null);
-              location.reload();
-            }}
+            onClick={auth.logout}
             className="flex items-center gap-2 text-left text-red-500 hover:text-red-700"
           >
             <LogOut size={20} aria-hidden="true" />Sair
@@ -189,7 +184,8 @@ export default function App() {
           <h1 className="text-center font-semibold text-lg">{renderTitle()}</h1>
         </div>
         <div className="sm:hidden h-16" />
-        {renderContent()}
+        <div className="border-b border-amber-300 bg-amber-50 p-3 text-sm">DESENVOLVIMENTO · {auth.membership.organization_id} · {usuarioLogado.tipo} · Atividades têm fonte explícita. Demais módulos locais, ainda não sincronizados.</div>
+        {auth.membership.role === "cliente" ? <DiagnosticoSupabase /> : renderContent()}
       </main>
     </div>
   );

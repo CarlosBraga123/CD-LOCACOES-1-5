@@ -1,5 +1,39 @@
 # Equivalência funcional Local legado → Supabase DEV
 
+## Fase 2.2 — Formulário de criação ligado à RPC, homologação real pendente
+
+Nova Construtora/Salvar do formulário original integrados exclusivamente à RPC DEV para Admin, com UUID preservado, busy, consulta de recibo, recuperação após reabertura e atualização da leitura compartilhada. Sem INSERT direto/fallback Local. Sem Web Locks/Web Crypto, criação bloqueada explicitamente; leitura/recuperação seguem possíveis. Edição/exclusão e obras permanecem bloqueadas. Local preservado. 759 testes automatizados aprovados e build aprovado; transporte remoto simulado, nenhum cadastro real executado. Equivalência de criação está implementada/testada localmente, mas só será homologada após teste real autorizado PC/iPhone. Ver CADASTRO_CONSTRUTORA_SUPABASE_DEV.md. Seções abaixo preservam histórico das etapas anteriores.
+
+## Fase 2.2 — Instalação seletiva preparada, ainda não executada
+
+Preflight readonly reconfirmado e backup validado vinculados ao instalador exclusivo da 140001. Ensaio local do artefato/histórico: 93 verificações aprovadas (81 de restauração + 12 de instalação), cinco testes offline adicionais. Procedimento em INSTALACAO_140001_DEV.md. Cadastro remoto de construtoras continua não habilitado, SQL candidato não instalado remotamente; 080002 permanece excluída. Homologação real JWT/PostgREST/PC/iPhone continua pendente. APTO para solicitar autorização de instalação, sem equivalência operacional declarada antes dela.
+
+## Fase 2.2 — Idempotência e recuperação corrigidas localmente (14/10/2026)
+
+Risco temporal reproduzido e corrigido com UTC nas funções que calculam hashes de linhas. Nova consulta de recibo por UUID permite recuperação sem armazenar formulário/credenciais; verifica autoria e integridade. Controlador de recuperação preparado e testado com reabertura, sessão/org, rede incerta, metadados antigos, proteção entre abas e reentrada manual do conteúdo original; nunca reenvia automaticamente. Ainda não integrado ao botão Salvar, que segue bloqueado. Instalação remota, JWT/PostgREST real e homologação no navegador/iPhone continuam pendentes. 52 testes PostgreSQL + guard reais aprovados; detalhes, novo hash e limitações em REVISAO_FINAL_140001_DEV.md e no plano técnico. APTO para preparar preflight; nenhuma aprovação remota presumida. 080002 não incluída. As seções abaixo são histórico das etapas anteriores.
+
+Fechamento: 731 testes JavaScript aprovados (26 de recuperação), 219 SQL ignorados no comando geral, build e diff --check aprovados. A aprovação SQL vem do ensaio separado de 52 testes + guard. Sem alterações de tela/Local, escrita remota ou habilitação de Salvar.
+
+## Fase 2.2 — Revisão final da instalação (14/10/2026)
+
+Procedimento e critérios em [REVISAO_FINAL_140001_DEV.md](REVISAO_FINAL_140001_DEV.md). Preflight remoto bloqueado por OAuth no MCP; nenhuma alternativa de acesso tentada. Instalação continua não autorizada/não executada, Salvar remoto bloqueado. Revisão identificou risco de hash de linhas com timestamptz variar entre fusos da sessão, exigindo regressão e normalização antes da instalação. Recuperação após fechar a aba exige projeto adicional: UUID isolado não substitui o comando completo exigido pela consulta atual. Resultados anteriores de 40 testes PostgreSQL + guard e 705 JavaScript permanecem evidência local, sem cobrir essas pendências ou JWT/PostgREST real. 080002 não é dependência e permanece excluída.
+
+## Fase 2.2 — RPC de construtoras implementada e ensaiada localmente (14/10/2026)
+
+Criada 20261014000100_create_dev_constructor.sql: criação atômica de construtora/tabela comercial/recibo privado, UUID e comando canônicos, cópia padrão equivalente ao Local, idempotência e consulta de recuperação. 40 testes PostgreSQL reais aprovados, zero reprovados/ignorados na suíte, mais um guard real de isolamento aprovado; concorrência com conexões independentes e rollback ensaiados. 080002 não foi usada nesta suíte. Clusters próprios encerrados/removidos; PostgreSQL original preservado. Detalhes e limitações no plano da Fase 2.2 e no README do executor.
+
+Decisão confirmada: tela continua exclusiva de Admin; RPC permite Admin/Gestor ativos. Sem alteração de navegação, formulário ou botão Salvar DEV. Sem instalação/conexão remota, commit, push ou deploy. Preparação deixa de ser somente desenho, mas escrita compartilhada ainda N até preflight, instalação autorizada e integração/homologação do transporte. Recibos detectam alterações posteriores; persistência da tentativa após fechar a aba continua pendente.
+
+Fechamento: 705 testes JavaScript aprovados, 207 SQL ignorados no npm test; os 40 testes novos + guard foram executados separadamente em PostgreSQL real. Build, sintaxe PowerShell e git diff --check aprovados. SHA-256 final da 140001: BE81EA4CFD810AF0DE39C0B180935AD326847DBEF597959ACFDD8284C30707EE. Não há FK do autor para auth.users, evitando bloquear a gestão do Auth; identidade histórica e FKs cadastrais do recibo preservadas e testadas.
+
+## Fase 2.2 — Preparação da criação de construtoras (14/10/2026)
+
+Base local: 3f9081e297d3676e5c7a6268690f1a4297d0c006. Contrato/arquitetura em docs/FASE_2_2_CADASTRO_CONSTRUTORAS_DEV.md; preparador offline em preparacaoConstrutoraRemota.js e testes próprios. Reutiliza os campos/normalização Local, UUID estável, proposta de cópia comercial transacional e consulta individual antes de repetir resultado incerto. Não existe transporte de escrita nem integração desse preparador ao formulário. Salvar remoto e demais guards da Fase 2.1 permanecem intactos.
+
+RPCs e recibos privados foram projetados, não instalados ou declarados validados em PostgreSQL. Versão incremental candidata 20261014000100, sujeita a preflight remoto; nenhum arquivo histórico alterado. Admin/Gestor propostos na RPC; acesso de Gestor à tela depende de confirmação, pois a navegação atual é Admin. Nomes/CNPJs iguais não recebem nova proibição. Pendências: SQL executável, testes reais de ACL/concorrência/rollback, confirmação do DEFAULT remoto, recuperação da tentativa após fechamento e autorizações de instalação/habilitação. Atividades recentes nos detalhes continuam indisponíveis.
+
+Validação: 17 testes específicos novos; suíte completa com 702 aprovados, 167 SQL ignorados e zero reprovados. Build e git diff --check aprovados. Nenhum teste SQL real, conexão remota, alteração do formulário, commit, push ou deploy nesta preparação.
+
 ## Aceite da Fase 2.1 para commit local — 14/10/2026
 
 O responsável homologou no computador os sete pontos da interface compartilhada: abas/cards, organização das obras, painéis cadastrais, contatos, tabelas comerciais, bloqueios remotos e preservação do modo Local. O recorte de leitura cadastral está aprovado para commit local com a mensagem “Integra leitura cadastral ao Supabase DEV”. A homologação no iPhone desta revisão permanece separada da homologação já concluída da Fase 1.
@@ -70,7 +104,7 @@ O servidor 130002 reconcilia ocupação pelo histórico e usa locks em seis tabe
 | AUTH-02 | Perfis e telas | P/D | Admin/Gestor no fluxo remoto; UI não oferece todos os fluxos Cliente/Funcionário. Definir matriz por operação, não copiar o antigo admin simulado | src/App.jsx, src/auth/authSession.js |
 | AUTH-03 | Cadastro local de usuários | L/N | Usuarios.jsx não é tela ativa; não confundir lista local com administração Supabase Auth | src/components/Usuarios.jsx, App.jsx |
 | CAD-01 | Listar/buscar construtoras e obras | E no recorte de leitura cadastral; módulo P | Fonte explícita Local/DEV; adaptador por ID e apresentação original compartilhada; leitura e sete pontos visuais homologados pelo responsável no PC. iPhone desta revisão pendente; atividades recentes nos detalhes indisponíveis | ConstrutorasObras.jsx, ConstrutorasObrasRemotas.jsx, cadastrosRemotos.js |
-| CAD-02 | Criar/editar/excluir construtora | L/N | Comando individual, conflitos, referências e exclusões com mesma proteção do Local | ConstrutorasObras.jsx, construtoraRepository.js |
+| CAD-02 | Criar/editar/excluir construtora | Criação DEV implementada; homologação real pendente; edição/exclusão Local | 140001 instalada conforme auditoria anterior. Formulário original ligado à RPC com UUID, recibos/recuperação e atualização compartilhada; transporte simulado validado. Sem Web Locks, gravação bloqueada. Nenhum cadastro real nesta implementação; edição/exclusão DEV bloqueadas | ConstrutorasObras.jsx, ConstrutorasObrasRemotas.jsx, construtoraSupabaseRepository.js, recuperacaoConstrutoraRemota.js, docs/CADASTRO_CONSTRUTORA_SUPABASE_DEV.md |
 | CAD-03 | Criar/editar/excluir obra e vínculo de construtora | L/N | Preservar IDs, vínculos históricos e bloqueios; não reconciliar nomes silenciosamente | ConstrutorasObras.jsx, obraRepository.js |
 | CAD-04 | Endereços, CNPJ, contatos, telefone/WhatsApp | P | Leitura cadastral completa e contatos por obra implementados, sem raw_payload. OS/contratos e gravação continuam não integrados | cadastrosRemotos.js, site_contacts |
 | COM-01 | Tabela padrão, por construtora e por obra | P/L | Leitura para prévia remota; tela de manutenção e gravação ainda locais | TabelaComercial.jsx, previaComercialRemota.js |

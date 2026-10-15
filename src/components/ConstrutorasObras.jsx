@@ -225,9 +225,11 @@ export function ConstrutorasObrasLocal({
   contextoNavegacao,
   limparContextoNavegacao,
   dadosRemotos = null,
+  cadastroRemoto = null,
   estadoInicial = {},
 }) {
   const somenteLeitura = dadosRemotos !== null;
+  const podeCriarRemoto = somenteLeitura && cadastroRemoto?.permitido === true;
   const [construtorasLocais, setConstrutoras] = useState([]);
   const [obrasLocais, setObras] = useState([]);
   const [atividadesLocais, setAtividades] = useState([]);
@@ -520,7 +522,7 @@ export function ConstrutorasObrasLocal({
   };
 
   const abrirFormularioNovaConstrutora = () => {
-    if (somenteLeitura) return;
+    if (somenteLeitura && (!podeCriarRemoto || cadastroRemoto.busy)) return;
     setVisualizacao("gestao");
     setModoFormularioObra(null);
     setModoFormularioConstrutora("nova");
@@ -567,8 +569,17 @@ export function ConstrutorasObrasLocal({
     }
   };
 
-  const salvarNovaConstrutora = () => {
-    if (somenteLeitura) return;
+  const salvarNovaConstrutora = async () => {
+    if (somenteLeitura) {
+      if (!podeCriarRemoto) return;
+      if (!prepararConstrutoraParaSalvar(formularioConstrutora).nome) return;
+      const resultado = await cadastroRemoto.salvar(formularioConstrutora);
+      if (resultado?.confirmed) {
+        setConstrutoraAbertaId(resultado.id);
+        fecharFormularioConstrutora();
+      }
+      return;
+    }
     const dados = prepararConstrutoraParaSalvar(formularioConstrutora);
     if (!dados.nome) return;
 
@@ -1906,13 +1917,14 @@ export function ConstrutorasObrasLocal({
           <button
             type="button"
             onClick={fecharFormularioConstrutora}
+            disabled={somenteLeitura && cadastroRemoto?.busy}
             className="text-sm text-gray-600 underline"
           >
             Cancelar
           </button>
         </div>
 
-        {somenteLeitura ? <fieldset disabled className="min-w-0">{renderFormularioConstrutora()}</fieldset> : renderFormularioConstrutora()}
+        {somenteLeitura ? <fieldset disabled={!podeCriarRemoto || modoFormularioConstrutora !== 'nova' || cadastroRemoto?.busy} className="min-w-0">{renderFormularioConstrutora()}</fieldset> : renderFormularioConstrutora()}
 
         {(modoFormularioConstrutora === "editar" || modoFormularioConstrutora === "consulta") && (
           <div className="space-y-4 rounded border bg-gray-50 p-3">
@@ -1931,7 +1943,7 @@ export function ConstrutorasObrasLocal({
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
-            disabled={somenteLeitura}
+            disabled={somenteLeitura && (!podeCriarRemoto || modoFormularioConstrutora !== 'nova' || cadastroRemoto?.busy || !['sem-pendencia','nao-localizada'].includes(cadastroRemoto?.estado))}
             onClick={
               modoFormularioConstrutora === "nova"
                 ? salvarNovaConstrutora
@@ -2522,7 +2534,7 @@ export function ConstrutorasObrasLocal({
       <div className="flex flex-col gap-2 sm:flex-row">
         <button
           type="button"
-          disabled={somenteLeitura}
+          disabled={somenteLeitura && (!podeCriarRemoto || cadastroRemoto?.busy)}
           onClick={abrirFormularioNovaConstrutora}
           className="rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm"
         >
